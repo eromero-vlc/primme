@@ -102,6 +102,8 @@ void primme_initialize(primme_params *primme) {
    primme->stats.numMatvecs        = 0;
    primme->stats.numPreconds       = 0;
    primme->stats.elapsedTime       = 0.0L;
+   primme->stats.elapsedTimeOrtho  = 0.0L;
+   primme->stats.numReorthos       = 0;
 
    /* Optional user defined structures */
    primme->matrix                  = NULL;

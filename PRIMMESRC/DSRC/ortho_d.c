@@ -57,6 +57,7 @@
 #include "primme.h"         
 #include "numerical_d.h"
 #include "ortho_d.h"
+#include "wtime.h"
  
 
 /**********************************************************************
@@ -120,6 +121,7 @@ int ortho_dprimme(double *basis, int ldBasis, int b1, int b2,
    double ztmp;
    double *overlaps;
    double tpone = +1.0e+00, tzero = +0.0e+00, tmone = -1.0e+00;
+   double t0;
    FILE *outputFile;
 
    /* messages = (primme->procID == 0 && primme->printLevel >= 5); */
@@ -156,6 +158,7 @@ int ortho_dprimme(double *basis, int ldBasis, int b1, int b2,
    /* main loop to orthogonalize new vectors one by one */
    /*---------------------------------------------------*/
 
+   t0 = primme_get_wtime();
    for(i=b1; i <= b2; i++) {
     
       nOrth = 0;
@@ -182,7 +185,8 @@ int ortho_dprimme(double *basis, int ldBasis, int b1, int b2,
          if (nOrth == 1) {
             ztmp = Num_dot_dprimme(nLocal, &basis[ldBasis*i], 1, 
                                            &basis[ldBasis*i], 1);
-         }
+         } else
+            primme->stats.numReorthos++;
             
          if (i > 0) {
             Num_gemv_dprimme("C", nLocal, i, tpone, basis, ldBasis, 
@@ -198,6 +202,16 @@ int ortho_dprimme(double *basis, int ldBasis, int b1, int b2,
          overlaps = &rwork[i+numLocked+1];
          count = i + numLocked + 1;
          (*primme->globalSumDouble)(rwork, overlaps, &count, primme);
+         if (primme->printLevel > 3 && nOrth == 1 ) {
+             { double norm0; int j;
+             fprintf(stderr, "ORTH ===\n");
+             for (j=0; j<numLocked; j++) fprintf(stderr, "ORTH %g\n", overlaps[i+j]/sqrt(ztmp));
+             fprintf(stderr, "ORTH ...\n");
+             for (j=0, norm0=0; j<numLocked; norm0+=overlaps[i+j]*overlaps[i+j], j++);
+             printf("ORTHN: %g ", sqrt(norm0/ztmp));
+             for (j=0, norm0=0; j<i; norm0+=overlaps[j]*overlaps[j], j++);
+             printf("%g\n", sqrt(norm0/ztmp)); }
+         }
 
          if (numLocked > 0) { /* locked array most recently accessed */
             Num_gemv_dprimme("N", nLocal, numLocked, tmone, locked, ldLocked, 
@@ -252,7 +266,9 @@ int ortho_dprimme(double *basis, int ldBasis, int b1, int b2,
          } 
             
       }
+      primme->stats.numColumnsOrtho += i + numLocked;
    }
+   primme->stats.elapsedTimeOrtho += primme_get_wtime() - t0;
          
    return 0;
 }

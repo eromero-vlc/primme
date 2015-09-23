@@ -237,6 +237,11 @@ int main_iter_dprimme(double *evals, int *perm, double *evecs,
    primme->stats.numOuterIterations = 0;
    primme->stats.numRestarts = 0;
    primme->stats.numMatvecs = 0;
+   primme->stats.numColumnsOrtho = 0;
+   primme->stats.elapsedTimeOrtho = 0;
+   primme->stats.currentEigFirstIteration = -1;
+   primme->stats.currentEigFirstResidual = -1;
+
    numLocked = 0;
    converged = FALSE;
    LockingProblem = 0;
@@ -280,16 +285,6 @@ int main_iter_dprimme(double *evals, int *perm, double *evecs,
    /* -------------------- */
    /* Initialize the basis */
    /* -------------------- */
-/*
-	for (i=0;i<primme->maxBasisSize-1;i++) {
-	tstart = primme_wTimer(0);
-            update_projection_dprimme(V, W, H, i, 
-               primme->maxBasisSize, 1, hVecs, primme);
-	tstart = primme_wTimer(0)-tstart;
-	printf("basisSize %3d time %g\n",i,tstart);
-     	}
-	return(-1);
-*/
 
    ret = init_basis_dprimme(V, W, evecs, evecsHat, M, UDU, ipivot, machEps,
            rwork, rworkSize, &basisSize, &nextGuess, &numGuesses, &timeForMV,
@@ -376,6 +371,12 @@ int main_iter_dprimme(double *evals, int *perm, double *evecs,
                hVals, flag, basisSize, iev, &ievMax, blockNorms, &blockSize, 
                numConverged, numLocked, evecs, tol, maxConvTol, 
                largestRitzValue, rwork, primme);
+
+            /* If some converge, clean stats */
+            if (recentlyConverged > 0) {
+               primme->stats.currentEigFirstIteration = -1;
+               primme->stats.currentEigFirstResidual = -1;
+            }
 
             /* If the total number of converged pairs, including the     */
             /* recentlyConverged ones, are greater than or equal to the  */
@@ -872,7 +873,7 @@ void check_reset_flags_dprimme(int *flag, int *numConverged,
    for (i=0;i<primme->numEvals;i++) {
       if (i >= numPrevRitzVals) break;
       if ((flag[i] == CONVERGED) && (fabs(hVals[i]-prevRitzVals[i]) > tol)) {
-         *numConverged--;
+         (*numConverged)--;
          flag[i] = UNCONVERGED;
       }
    }

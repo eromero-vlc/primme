@@ -102,7 +102,13 @@ typedef struct primme_stats {
    int numRestarts;
    int numMatvecs;
    int numPreconds;
-   double elapsedTime; 
+   double elapsedTime;
+   int numReorthos; 
+   double elapsedTimeOrtho;
+   int numColumnsOrtho;
+   int currentEigFirstIteration;
+   double currentEigFirstResidual;
+   double currentEigResidual;
 } primme_stats;
    
 typedef struct JD_projectors {
@@ -184,6 +190,13 @@ typedef struct primme_params {
    void *matrix;
    void *preconditioner;
    double *ShiftsForPreconditioner;
+   double RitzValuesForPreconditioner[7];
+   /* Preconditioner applied on block of vectors (if available) */
+   void (*applyOrtho)
+      ( void *x,  void *y, int *blockSize, struct primme_params *primme);
+   /* Actually problem matrix */
+   void (*matrixMatvecOrig)
+      ( void *x,  void *y, int *blockSize, struct primme_params *primme);
 
    struct restarting_params restartingParams;
    struct correction_params correctionParams;

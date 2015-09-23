@@ -99,6 +99,7 @@ int check_convergence_dprimme(double *V, double *W, double *hVecs,
    /* ---------------------------------------------------------------------- */
    if (primme->locking) {
       attainableTol = sqrt(primme->numOrthoConst+numLocked)*maxConvTol;
+      //attainableTol = maxConvTol;
    }   
 
       

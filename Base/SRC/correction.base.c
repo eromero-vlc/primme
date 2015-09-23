@@ -325,6 +325,15 @@ int solve_correction_@(pre)primme(@(type) *V, @(type) *W, @(type) *evecs,
 
    } /* else primme_smallest or primme_largest */
 
+   /* Fill up interval */
+   computeRitzValsForPreconditioner(blockSize, blockNorms, numLocked, basisSize, numLocked+basisSize,
+                                    sortedRitzVals, ilev, primme);
+   if (primme->stats.currentEigFirstIteration < 0) {
+      primme->stats.currentEigFirstIteration = primme->stats.numOuterIterations;
+      primme->stats.currentEigFirstResidual = blockNorms[0];
+   } 
+   primme->stats.currentEigResidual = blockNorms[0];
+
    /* Equip the primme struct with the blockOfShifts, in case the user */
    /* wants to precondition (K-sigma_i I)^{-1} with a different shift  */
    /* for each vector                                                  */
@@ -368,6 +377,9 @@ int solve_correction_@(pre)primme(@(type) *V, @(type) *W, @(type) *evecs,
 
          /* GD: compute K^{-1}r , or approx.Olsen: K^{-1}(r-ex) */
 
+         
+         if (primme->correctionParams.precondition)
+            Num_@(pre)copy_@(pre)primme(primme->nLocal*blockSize, x, 1, r, 1);
          apply_preconditioner_block(r, x, blockSize, primme );
       }
    }
@@ -417,6 +429,11 @@ int solve_correction_@(pre)primme(@(type) *V, @(type) *W, @(type) *evecs,
 
       } /* end for each block vector */
    } /* JDqmr variants */
+
+   if (primme->applyOrtho) {
+      Num_@(pre)copy_@(pre)primme(primme->nLocal*blockSize, x, 1, r, 1);
+      primme->applyOrtho(r, x, &blockSize, primme);
+   }
 
    return 0;
 
@@ -534,6 +551,46 @@ static double computeRobustShift(int blockIndex, double resNorm,
    return epsilon;
 
 }
+
+/*******************************************************************************
+ * Subroutine computeInterval - compute a lower bound and an upper bound for the
+ *    ritz value.
+ *
+ * INPUT ARRAYS AND PARAMETERS
+ * ---------------------------
+ * blockIndex    Index of the block vector for which the correction will be 
+ *               solved.
+ *
+ * resNorm       The residual norm of the current Ritz vector
+ *
+ * sortedRitzVals  Sorted array of locked Ritz values and current Ritz values.
+ *                 The array is of size numLocked+basisSize
+ *
+ * numSorted     The size of sortedRitzVals.
+ *
+ * ilev          Array of size blockSize that maps targeted Ritz values to
+ *               their position with the array sortedRitzVals.
+ *
+ * interval      store lower bound and upper bound.
+ *
+ ******************************************************************************/
+
+static void computeRitzValsForPreconditioner(int blockSize, double *blockNorms, 
+   int numLocked, int basisSize, int numSorted, double *sortedRitzVals, int *ilev,
+   primme_params *primme) {
+
+   double *ritzs;
+
+   ritzs = primme->RitzValuesForPreconditioner;
+   ritzs[0] = numLocked>0 ? sortedRitzVals[numLocked-1] : -HUGE_VAL;
+   ritzs[1] = ilev[0]>0 ? sortedRitzVals[ilev[0]-1] : -HUGE_VAL;
+   ritzs[2] = sortedRitzVals[ilev[0]];
+   ritzs[3] = sortedRitzVals[ilev[0]] - blockNorms[0];
+   ritzs[4] = sortedRitzVals[ilev[blockSize-1]];
+   ritzs[5] = sortedRitzVals[ilev[blockSize-1]] + blockNorms[blockSize-1];
+   ritzs[6] = sortedRitzVals[(numSorted-ilev[blockSize-1])/2+ilev[blockSize-1]];
+}
+
 
 
 /*******************************************************************************

@@ -36,6 +36,10 @@ static double computeRobustShift(int blockIndex, double resNorm,
    double *prevRitzVals, int numPrevRitzVals, double *sortedRitzVals, 
    double *approxOlsenShift, int numSorted, int *ilev, primme_params *primme);
 
+static void computeRitzValsForPreconditioner(int blockSize, double *blockNorms, 
+   int numLocked, int basisSize, int numSorted, double *sortedRitzVals, int *ilev,
+   primme_params *primme);
+
 static void mergeSort(double *lockedEvals, int numLocked, double *ritzVals, 
    int *flag, int basisSize, double *sortedEvals, int *ilev, int blockSize,
    primme_params *primme);
