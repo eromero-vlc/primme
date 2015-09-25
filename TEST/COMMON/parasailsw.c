@@ -1,3 +1,30 @@
+/*******************************************************************************
+ *   PRIMME PReconditioned Iterative MultiMethod Eigensolver
+ *   Copyright (C) 2015 College of William & Mary,
+ *   James R. McCombs, Eloy Romero Alcalde, Andreas Stathopoulos, Lingfei Wu
+ *
+ *   This file is part of PRIMME.
+ *
+ *   PRIMME is free software; you can redistribute it and/or
+ *   modify it under the terms of the GNU Lesser General Public
+ *   License as published by the Free Software Foundation; either
+ *   version 2.1 of the License, or (at your option) any later version.
+ *
+ *   PRIMME is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *   Lesser General Public License for more details.
+ *
+ *   You should have received a copy of the GNU Lesser General Public
+ *   License along with this library; if not, write to the Free Software
+ *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ *******************************************************************************
+ * File: parasailsw.c
+ * 
+ * Purpose - Parasails wrapper.
+ * 
+ ******************************************************************************/
 
 #include "csr.h"
 #include "ParaSails.h"
@@ -15,7 +42,8 @@ static ParaSails* generate_precond(CSRMatrix *matrix, double shift, int n, int p
 int readMatrixAndPrecondParaSails(const char* matrixFileName, double shift,
                                   int level, double threshold, double filter,
                                   int isymm, MPI_Comm comm, double *fnorm,
-                                  int *n, int *nLocal_, int *numProcs_, int *procID_,
+                                  int *m, int *n, int *mLocal_, int *nLocal_,
+                                  int *numProcs_, int *procID_,
                                   Matrix **pmatrix, ParaSails **pfactor) {
    int numProcs, procID, nLocal, modulo, rangeStart, rangeEnd;
    CSRMatrix *matrix;
@@ -40,17 +68,18 @@ int readMatrixAndPrecondParaSails(const char* matrixFileName, double shift,
       matrix = (CSRMatrix *)primme_calloc(1, sizeof(CSRMatrix), "CSRMatrix");
    }
    MPI_Bcast(&matrix->nnz, 1, MPI_INT, 0, MPI_COMM_WORLD);
+   MPI_Bcast(&matrix->m, 1, MPI_INT, 0, MPI_COMM_WORLD);
    MPI_Bcast(&matrix->n, 1, MPI_INT, 0, MPI_COMM_WORLD);
    if (fnorm) MPI_Bcast(fnorm, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
    if (procID != 0) {
       matrix->AElts = (double *)primme_calloc(matrix->nnz, sizeof(double), "A");
       matrix->JA = (int *)primme_calloc(matrix->nnz, sizeof(int), "JA");
-      matrix->IA = (int *)primme_calloc(matrix->n+1, sizeof(int), "IA");
+      matrix->IA = (int *)primme_calloc(matrix->m+1, sizeof(int), "IA");
    }
    else {
       // Proc 0 converts CSR to C indexing
-      for (i=0; i < matrix->n+1; i++) {
+      for (i=0; i < matrix->m+1; i++) {
          matrix->IA[i]--;
       }
       for (i=0; i < matrix->nnz; i++) {
@@ -59,7 +88,7 @@ int readMatrixAndPrecondParaSails(const char* matrixFileName, double shift,
    }
 
    MPI_Bcast(matrix->AElts, matrix->nnz, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-   MPI_Bcast(matrix->IA, matrix->n+1, MPI_INT, 0, MPI_COMM_WORLD);
+   MPI_Bcast(matrix->IA, matrix->m+1, MPI_INT, 0, MPI_COMM_WORLD);
    MPI_Bcast(matrix->JA, matrix->nnz, MPI_INT, 0, MPI_COMM_WORLD);
 
    /* ---------------------------------------------------------------------- */
@@ -93,8 +122,8 @@ int readMatrixAndPrecondParaSails(const char* matrixFileName, double shift,
    /* * * * * * * * * * * * * * * * * * * * * * * */
    /* Simplistic assignment of processors to rows */
    /* * * * * * * * * * * * * * * * * * * * * * * */
-   nLocal = matrix->n / numProcs;
-   modulo = matrix->n % numProcs;
+   mLocal = matrix->m / numProcs;
+   modulo = matrix->m % numProcs;
    rangeStart = 0;
    for (i=0; i<numProcs; i++) {
       rangeEnd = rangeStart + nLocal;

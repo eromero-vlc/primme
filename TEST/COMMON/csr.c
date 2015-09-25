@@ -1,5 +1,7 @@
-/*  PRIMME PReconditioned Iterative MultiMethod Eigensolver
- *   Copyright (C) 2005  James R. McCombs,  Andreas Stathopoulos
+/*******************************************************************************
+ *   PRIMME PReconditioned Iterative MultiMethod Eigensolver
+ *   Copyright (C) 2015 College of William & Mary,
+ *   James R. McCombs, Eloy Romero Alcalde, Andreas Stathopoulos, Lingfei Wu
  *
  *   This file is part of PRIMME.
  *
@@ -17,51 +19,61 @@
  *   License along with this library; if not, write to the Free Software
  *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
- */
-
-/* Required by qsort_r */
-#define _GNU_SOURCE
+ *******************************************************************************
+ * File: csr.c
+ * 
+ * Purpose - Functions to read MatrixMarket format matrices and other CSR
+ *           auxiliary functions.
+ * 
+ ******************************************************************************/
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
+#include "mmio.h"
 #include "primme.h"
 #include "csr.h"
-#include "mmio.h"
 
-static int readfullMTX(const char *mtfile, double **A, int **JA, int **IA, int *m, int *n, int *nnz);
+static int readfullMTX(const char *mtfile, PRIMME_NUM **A, int **JA, int **IA, int *m, int *n, int *nnz);
+#ifndef USE_DOUBLECOMPLEX
 static int readUpperMTX(const char *mtfile, double **A, int **JA, int **IA, int *n, int *nnz);
 int ssrcsr(int *job, int *value2, int *nrow, double *a, int *ja, int *ia, 
    int *nzmax, double *ao, int *jao, int *iao, int *indu, int *iwk, int *ierr);
+#endif
 
 int readMatrixNative(const char* matrixFileName, CSRMatrix **matrix_, double *fnorm) {
-   int ret, cols;
+   int ret;
    CSRMatrix *matrix;
 
    matrix = (CSRMatrix*)primme_calloc(1, sizeof(CSRMatrix), "CSRMatrix");
    if (!strcmp("mtx", &matrixFileName[strlen(matrixFileName)-3])) {  
-      // coordinate format storing both lower and upper triangular parts
+      /* coordinate format storing both lower and upper triangular parts */
       ret = readfullMTX(matrixFileName, &matrix->AElts, &matrix->JA, 
-         &matrix->IA, &matrix->n, &cols, &matrix->nnz);
+         &matrix->IA, &matrix->m, &matrix->n, &matrix->nnz);
       if (ret < 0) {
          fprintf(stderr, "ERROR: Could not read matrix file\n");
          return(-1);
       }
    }
    else if (matrixFileName[strlen(matrixFileName)-1] == 'U') {
-      // coordinate format storing only upper triangular part
+      /* coordinate format storing only upper triangular part */
+#ifndef USE_DOUBLECOMPLEX
       ret = readUpperMTX(matrixFileName, &matrix->AElts, &matrix->JA,
          &matrix->IA, &matrix->n, &matrix->nnz);
+#else
+      /* TODO: support this in complex arithmetic */
+      ret = -1;
+#endif
       if (ret < 0) {
          fprintf(stderr, "ERROR: Could not read matrix file\n");
          return(-1);
       }
    }
    else {  
-      //Harwell Boeing format NOT IMPLEMENTED
-      //ret = readmt()
+      /* Harwell Boeing format NOT IMPLEMENTED */
+      /* ret = readmt() */
       ret = -1;
       if (ret < 0) {
          fprintf(stderr, "ERROR: Could not read matrix file\n");
@@ -70,22 +82,24 @@ int readMatrixNative(const char* matrixFileName, CSRMatrix **matrix_, double *fn
    }
    *matrix_ = matrix;
    if (fnorm)
-      *fnorm = frobeniusNorm(matrix->n, matrix->IA, matrix->AElts);
+      *fnorm = frobeniusNorm(matrix);
 
    return 0;
 }
 
-static int my_comp(const void *a, const void *b, void *ctx) {
+static int *my_comp_ctx[2];
+static int my_comp(const void *a, const void *b)
+{
    const int ia = *(int*)a, ib = *(int*)b;
-   int **p = (int **)ctx;
+   int **p = my_comp_ctx;
    return p[0][ia] != p[0][ib] ? p[0][ia] - p[0][ib] : p[1][ia] - p[1][ib];
 }
 
-static int readfullMTX(const char *mtfile, double **AA, int **JA, int **IA, int *m, int *n, int *nnz) { 
+static int readfullMTX(const char *mtfile, PRIMME_NUM **AA, int **JA, int **IA, int *m, int *n, int *nnz) { 
    int i,j, k, nzmax;
    int *I, *J, *perm;
-   double *A;
-   double im;
+   PRIMME_NUM *A;
+   double re, im;
    FILE *matrixFile;
    MM_typecode type;
 
@@ -96,9 +110,11 @@ static int readfullMTX(const char *mtfile, double **AA, int **JA, int **IA, int 
 
    /* first read to set matrix kind and size */
    if(mm_read_banner(matrixFile, &type) != 0) return -1;
-   if (!mm_is_valid(type) || !mm_is_sparse(type) || mm_is_complex(type) ||
-       mm_is_hermitian(type) || mm_is_skew(type) ||
-       !(mm_is_real(type) || mm_is_pattern(type))) {
+   if (!mm_is_valid(type) || !mm_is_sparse(type) || mm_is_skew(type)
+#ifndef USE_DOUBLECOMPLEX
+       || mm_is_complex(type) || mm_is_hermitian(type) || !(mm_is_real(type))
+#endif
+      ) {
       fprintf(stderr, "Matrix format '%s' not supported!", mm_typecode_to_str(type)); 
       return -1;
    }
@@ -107,16 +123,18 @@ static int readfullMTX(const char *mtfile, double **AA, int **JA, int **IA, int 
 
    nzmax = *nnz;
    if (mm_is_symmetric(type)) nzmax *= 2;
-   A = (double *)primme_calloc(nzmax, sizeof(double), "A");
+   A = (PRIMME_NUM *)primme_calloc(nzmax, sizeof(PRIMME_NUM), "A");
    J = (int *)primme_calloc(nzmax, sizeof(int), "J");
    I = (int *)primme_calloc(nzmax, sizeof(int), "I");
 
    /* Read matrix in COO */
    for (k=0, i=0; k<*nnz; k++, i++) {
-      if (mm_read_mtx_crd_entry(matrixFile, &I[i], &J[i], &A[i], &im, type)!=0) return -1;
+      if (mm_read_mtx_crd_entry(matrixFile, &I[i], &J[i], &re, &im, type)!=0) return -1;
       if (mm_is_pattern(type)) A[i] = 1;
-      if (mm_is_symmetric(type) && I[i] != J[i]) {
-         I[i+1] = J[i]; J[i+1] = I[i]; A[i+1] = A[i]; i++;
+      else if (mm_is_real(type)) A[i] = re;
+      else A[i] = re + IMAGINARY*im;
+      if ((mm_is_symmetric(type) || mm_is_hermitian(type)) && I[i] != J[i]) {
+         I[i+1] = J[i]; J[i+1] = I[i]; A[i+1] = CONJ(A[i]); i++;
       }
    }
    nzmax = *nnz = i;
@@ -124,31 +142,32 @@ static int readfullMTX(const char *mtfile, double **AA, int **JA, int **IA, int 
    /* Sort COO by columns */
    perm = (int *)primme_calloc(nzmax, sizeof(int), "perm");
    for (i=0; i<nzmax; i++) perm[i] = i;
-   {
-      int *ctx[2] = {J, I};
-      qsort_r(perm, nzmax, sizeof(int), my_comp, ctx);
-   }
+   my_comp_ctx[0] = I;
+   my_comp_ctx[1] = J;
+   qsort(perm, nzmax, sizeof(int), my_comp);
 
    /* Collapse columns */
    *IA = (int *)primme_calloc(*m+1, sizeof(int), "IA");
    (*IA)[0] = 1;
    for (i=0, j=1; i<nzmax; i++)
-      while (j < J[perm[i]]) (*IA)[j++] = i+1;
+      while (j < I[perm[i]]) (*IA)[j++] = i+1;
    while (j <= *m) (*IA)[j++] = nzmax+1;
 
    /* Copy rows and values sorted */
-   *JA = J;
-   for (i=0; i<nzmax; i++) (*JA)[i] = I[perm[i]];
-   free(I);
-   *AA = (double *)primme_calloc(nzmax, sizeof(double), "AA");
+   *JA = I;
+   for (i=0; i<nzmax; i++) (*JA)[i] = J[perm[i]];
+   free(J);
+   *AA = (PRIMME_NUM *)primme_calloc(nzmax, sizeof(PRIMME_NUM), "AA");
    for (i=0; i<nzmax; i++) (*AA)[i] = A[perm[i]];
    free(A);
+   free(perm);
 
    fclose(matrixFile);
 
-   return(0);
+   return 0;
 }
 
+#ifndef USE_DOUBLECOMPLEX
 static int readUpperMTX(const char *mtfile, double **A, int **JA, int **IA, int *n, int *nnz) { 
    int i, k, nzmax;
    int job, value2;
@@ -165,7 +184,7 @@ static int readUpperMTX(const char *mtfile, double **A, int **JA, int **IA, int 
 
    i = 0;
    nextRow = 0;
-   fscanf(matrixFile, "%d %d\n", n, nnz);
+   if (fscanf(matrixFile, "%d %d\n", n, nnz) != 2) return -1;
    fprintf(stderr, "%d %d\n", *n, *nnz);
 
    nzmax = 2*(*nnz) - *n;
@@ -178,7 +197,7 @@ static int readUpperMTX(const char *mtfile, double **A, int **JA, int **IA, int 
 
    for (k=1; k <= *nnz; k++) {
       int tja; double ta;
-      fscanf(matrixFile, "%d %d %lf\n", &row, &tja, &ta);
+      if (fscanf(matrixFile, "%d %d %lf\n", &row, &tja, &ta) != 3) return -1;
       (*JA)[k-1]=tja;
       (*A)[k-1] = ta;
       if (i != row) {
@@ -203,6 +222,7 @@ static int readUpperMTX(const char *mtfile, double **A, int **JA, int **IA, int 
 
    return(0);
 }
+#endif
 
 /******************************************************************************
  * Computed the Frobenius norm of a CSR matrix 
@@ -210,7 +230,7 @@ static int readUpperMTX(const char *mtfile, double **A, int **JA, int **IA, int 
  *         ||A||_frob = sqrt( \sum_{i,j} A_ij^2 )
  *
 ******************************************************************************/
-double frobeniusNorm(int n, int *IA, double *AElts) {
+double frobeniusNorm(const CSRMatrix *matrix) {
 
    int i, j;
    double fnorm;
@@ -221,9 +241,9 @@ double frobeniusNorm(int n, int *IA, double *AElts) {
 
    fnorm = 0.0L;
 
-   for (i=0; i < n; i++) {
-      for (j=IA[i]; j <= IA[i+1]-1; j++) {
-         fnorm = fnorm + AElts[j-1]*AElts[j-1];
+   for (i=0; i < matrix->m; i++) {
+      for (j=matrix->IA[i]; j <= matrix->IA[i+1]-1; j++) {
+         fnorm = fnorm + REAL_PART(CONJ(matrix->AElts[j-1])*matrix->AElts[j-1]);
       }
    }
 
@@ -236,21 +256,20 @@ double frobeniusNorm(int n, int *IA, double *AElts) {
  *         A = A + shift I
  *
 ******************************************************************************/
-void shiftCSRMatrix(double shift, int n, int *IA, int *JA, double *AElts) {
+void shiftCSRMatrix(double shift, CSRMatrix *matrix) {
 
-   int i, j;
+   int i, j, n;
 
    /* IA and JA are indexed using C indexing, but their contents */
    /* assume Fortran indexing.  Thus, the contents of IA and JA  */
    /* must be decremented before being used in C.                */
 
-   for (i=0; i < n; i++) {
-      for (j=IA[i]; j <= IA[i+1]-1; j++) {
+   for (i=0, n=min(matrix->m, matrix->n); i < n; i++) {
+      for (j=matrix->IA[i]; j <= matrix->IA[i+1]-1; j++) {
 
-         if (JA[j-1]-1 == i) {
-            AElts[j-1] = AElts[j-1] + shift;
+         if (matrix->JA[j-1]-1 == i) {
+            matrix->AElts[j-1] = matrix->AElts[j-1] + shift;
          }
-
       }
    }
 

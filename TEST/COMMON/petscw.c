@@ -1,6 +1,7 @@
 /*******************************************************************************
  *   PRIMME PReconditioned Iterative MultiMethod Eigensolver
- *   Copyright (C) 2005  James R. McCombs,  Andreas Stathopoulos
+ *   Copyright (C) 2015 College of William & Mary,
+ *   James R. McCombs, Eloy Romero Alcalde, Andreas Stathopoulos, Lingfei Wu
  *
  *   This file is part of PRIMME.
  *
@@ -17,6 +18,12 @@
  *   You should have received a copy of the GNU Lesser General Public
  *   License along with this library; if not, write to the Free Software
  *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ *******************************************************************************
+ * File: petscw.c
+ * 
+ * Purpose - PETSc wrapper.
+ * 
  ******************************************************************************/
 
 #include <stdlib.h>
@@ -24,6 +31,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <assert.h>
 #include "mmio.h"
 #include <petscpc.h>
 #include <petscmat.h>
@@ -32,12 +40,13 @@
 
 static PetscErrorCode preallocation(Mat M,PetscInt *d_nz, PetscInt *o_nz);
 static PetscErrorCode loadmtx(const char* filename, Mat *M, PetscBool *pattern);
-static PetscErrorCode permutematrix(Mat Ain, Mat Bin, Mat *Aout, Mat *Bout);
+static PetscErrorCode permutematrix(Mat Ain, Mat Bin, Mat *Aout, Mat *Bout, int **permIndices);
 
 #undef __FUNCT__
 #define __FUNCT__ "readMatrixPetsc"
-int readMatrixPetsc(const char* matrixFileName, int *n, int *nLocal, int *numProcs,
-                    int *procID, Mat **matrix, double *fnorm_, int perm) {
+int readMatrixPetsc(const char* matrixFileName, int *m, int *n, int *mLocal, int *nLocal,
+                    int *numProcs, int *procID, Mat **matrix, double *fnorm_, int **perm) {
+
    PetscErrorCode ierr;
    PetscReal fnorm;
    PetscBool pattern;
@@ -67,13 +76,13 @@ int readMatrixPetsc(const char* matrixFileName, int *n, int *nLocal, int *numPro
 
    if (perm) {
       Mat Atemp;
-      ierr = permutematrix(**matrix, NULL, &Atemp, NULL);CHKERRQ(ierr);
+      ierr = permutematrix(**matrix, NULL, &Atemp, NULL, perm);CHKERRQ(ierr);
       ierr = MatDestroy(*matrix);CHKERRQ(ierr);
       **matrix = Atemp;
    }
 
-   ierr = MatGetSize(**matrix, n, NULL); CHKERRQ(ierr);
-   ierr = MatGetLocalSize(**matrix, nLocal, NULL); CHKERRQ(ierr);
+   ierr = MatGetSize(**matrix, m, n); CHKERRQ(ierr);
+   ierr = MatGetLocalSize(**matrix, mLocal, nLocal); CHKERRQ(ierr);
    MPI_Comm_size(MPI_COMM_WORLD, numProcs);
    MPI_Comm_rank(MPI_COMM_WORLD, procID);
 
@@ -130,15 +139,15 @@ static PetscErrorCode loadmtx(const char* filename, Mat *M, PetscBool *pattern) 
       i--; j--;
       if (i!=j) {
          if (i>=low && i<high) {
-	         if (j>=low && j<high) 
+            if (j>=low && j<high) 
                d_nz[i-low]++;
-	         else
+            else
                o_nz[i-low]++;
          }
          if (j>=low && j<high && !mm_is_general(type)) {
-	         if (i>=low && i<high) 
+            if (i>=low && i<high) 
                d_nz[j-low]++;
-	         else
+            else
                o_nz[j-low]++;        
          }
       }
@@ -217,7 +226,7 @@ static PetscErrorCode preallocation(Mat M,PetscInt *d_nz, PetscInt *o_nz) {
 
 #undef __FUNCT__
 #define __FUNCT__ "permutematrix"
-static PetscErrorCode permutematrix(Mat Ain, Mat Bin, Mat *Aout, Mat *Bout)
+static PetscErrorCode permutematrix(Mat Ain, Mat Bin, Mat *Aout, Mat *Bout, int **permIndices)
 {
    PetscErrorCode  ierr;
    MatPartitioning part;
@@ -245,19 +254,28 @@ static PetscErrorCode permutematrix(Mat Ain, Mat Bin, Mat *Aout, Mat *Bout)
  
    /* get old global number of each new global number */
    ierr = ISInvertPermutation(isn,nlocal[rank],&is);CHKERRQ(ierr);
-   ierr = PetscFree(nlocal);CHKERRQ(ierr);
    ierr = ISDestroy(&isn);CHKERRQ(ierr);
    ierr = MatPartitioningDestroy(&part);CHKERRQ(ierr);
+
+   /* copy permutation */
+   if (permIndices) {
+      const PetscInt *indices;
+      PetscInt i;
+      *permIndices = malloc(sizeof(int)*nlocal[rank]);
+      ierr = ISGetIndices(is, &indices);CHKERRQ(ierr);
+      for (i=0; i<nlocal[rank]; i++) (*permIndices)[i] = indices[i];
+      ierr = ISRestoreIndices(is, &indices);CHKERRQ(ierr);
+   }
  
+   ierr = PetscFree(nlocal);CHKERRQ(ierr);
+
    ierr = ISSort(is);CHKERRQ(ierr);
-   ierr = ISAllGather(is,&isn);CHKERRQ(ierr);
  
-   ierr = MatGetSubMatrix(Ain,is,isn,MAT_INITIAL_MATRIX,Aout);CHKERRQ(ierr);
+   ierr = MatGetSubMatrix(Ain,is,is,MAT_INITIAL_MATRIX,Aout);CHKERRQ(ierr);
    if (Bin && Bout) {
-      ierr = MatGetSubMatrix(Bin,is,isn,MAT_INITIAL_MATRIX,Bout);CHKERRQ(ierr);
+      ierr = MatGetSubMatrix(Bin,is,is,MAT_INITIAL_MATRIX,Bout);CHKERRQ(ierr);
    }
    ierr = ISDestroy(&is);CHKERRQ(ierr);
-   ierr = ISDestroy(&isn);CHKERRQ(ierr);
  
    PetscFunctionReturn(0);
 }
@@ -268,13 +286,14 @@ void PETScMatvec(void *x, void *y, int *blockSize, primme_params *primme) {
    Mat *matrix;
    Vec xvec, yvec;
    PetscErrorCode ierr;
-   
+
+   assert(sizeof(PetscScalar) == sizeof(PRIMME_NUM));   
    matrix = (Mat *)primme->matrix;
 
    ierr = MatCreateVecs(*matrix, &xvec, &yvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
    for (i=0; i<*blockSize; i++) {
-      ierr = VecPlaceArray(xvec, ((double*)x) + primme->nLocal*i); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
-      ierr = VecPlaceArray(yvec, ((double*)y) + primme->nLocal*i); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+      ierr = VecPlaceArray(xvec, ((PetscScalar*)x) + primme->nLocal*i); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+      ierr = VecPlaceArray(yvec, ((PetscScalar*)y) + primme->nLocal*i); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
       ierr = MatMult(*matrix, xvec, yvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
       ierr = VecResetArray(xvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
       ierr = VecResetArray(yvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
@@ -290,13 +309,14 @@ void ApplyPCPrecPETSC(void *x, void *y, int *blockSize, primme_params *primme) {
    Vec xvec, yvec;
    PetscErrorCode ierr;
    
+   assert(sizeof(PetscScalar) == sizeof(PRIMME_NUM));   
    matrix = (Mat *)primme->matrix;
    pc = (PC *)primme->preconditioner;
 
    ierr = MatCreateVecs(*matrix, &xvec, &yvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
    for (i=0; i<*blockSize; i++) {
-      ierr = VecPlaceArray(xvec, ((double*)x) + primme->nLocal*i); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
-      ierr = VecPlaceArray(yvec, ((double*)y) + primme->nLocal*i); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+      ierr = VecPlaceArray(xvec, ((PetscScalar*)x) + primme->nLocal*i); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+      ierr = VecPlaceArray(yvec, ((PetscScalar*)y) + primme->nLocal*i); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
       ierr = PCApply(*pc, xvec, yvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
       ierr = VecResetArray(xvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
       ierr = VecResetArray(yvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
@@ -308,15 +328,16 @@ void ApplyPCPrecPETSC(void *x, void *y, int *blockSize, primme_params *primme) {
 void ApplyInvDavidsonDiagPrecPETSc(void *x, void *y, int *blockSize, 
                                         primme_params *primme) {
    int i, j;
-   double *xvec, *yvec, shift, d, minDenominator;
+   double shift, d, minDenominator;
+   PRIMME_NUM *xvec, *yvec;
    const int nLocal = primme->nLocal, bs = *blockSize;
    const PetscScalar *diag;
    Vec vec;
    PetscErrorCode ierr;
    
    vec = *(Vec *)primme->preconditioner;
-   xvec = (double *)x;
-   yvec = (double *)y;
+   xvec = (PRIMME_NUM *)x;
+   yvec = (PRIMME_NUM *)y;
    minDenominator = 1e-14*(primme->aNorm >= 0.0L ? primme->aNorm : 1.);
 
    ierr = VecGetArrayRead(vec, &diag); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);

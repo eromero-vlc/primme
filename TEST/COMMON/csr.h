@@ -1,5 +1,7 @@
-/*  PRIMME PReconditioned Iterative MultiMethod Eigensolver
- *   Copyright (C) 2005  James R. McCombs,  Andreas Stathopoulos
+/*******************************************************************************
+ *   PRIMME PReconditioned Iterative MultiMethod Eigensolver
+ *   Copyright (C) 2015 College of William & Mary,
+ *   James R. McCombs, Eloy Romero Alcalde, Andreas Stathopoulos, Lingfei Wu
  *
  *   This file is part of PRIMME.
  *
@@ -17,21 +19,29 @@
  *   License along with this library; if not, write to the Free Software
  *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
- */
+ *******************************************************************************
+ * File: csr.h
+ * 
+ * Purpose - Definitions of CSR functions used by the driver.
+ * 
+ ******************************************************************************/
 
 #ifndef CSR_H
+
+#include "num.h"
 
 typedef struct {
    int *JA;
    int *IA;
-   double *AElts;
-   int n;
+   PRIMME_NUM *AElts;
+   int m; /* number of rows */
+   int n; /* number of columns */
    int nnz;
 } CSRMatrix;
 
 int readMatrixNative(const char* matrixFileName, CSRMatrix **matrix_, double *fnorm);
-double frobeniusNorm(int n, int *IA, double *AElts);
-void shiftCSRMatrix(double shift, int n, int *IA, int *JA, double *AElts);
+double frobeniusNorm(const CSRMatrix *matrix);
+void shiftCSRMatrix(double shift, CSRMatrix *matrix);
 
 #define CSR_H
 #endif

@@ -22,11 +22,9 @@
 
 // Preset method
 method 		         = DYNAMIC
-method 		         = GD_Olsen_plusK
 
 // Solver parameters
-primme.numEvals          = 1
-primme.printLevel = 4 
+primme.numEvals          = 10
 
 // Correction parameters
-primme.correction.precondition  = 0
+primme.correction.precondition  = 1

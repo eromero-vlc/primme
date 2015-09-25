@@ -1,6 +1,7 @@
-/**********************************************************************
+/*******************************************************************************
  *   PRIMME PReconditioned Iterative MultiMethod Eigensolver
- *   Copyright (C) 2005  James R. McCombs,  Andreas Stathopoulos
+ *   Copyright (C) 2015 College of William & Mary,
+ *   James R. McCombs, Eloy Romero Alcalde, Andreas Stathopoulos, Lingfei Wu
  *
  *   This file is part of PRIMME.
  *
@@ -25,12 +26,13 @@
  *           If desired, the user can call any of these functions for 
  *           initializing parameters, setting up the method, 
  *           allocating memory, or even checking a given set of parameters. 
- * 
  *
- **********************************************************************/
+ ******************************************************************************/
 
+#if !(defined (__APPLE__) && defined (__MACH__))
+#include <malloc.h>
+#endif
 #include <stdlib.h>   /* mallocs, free */
-#include <unistd.h>   /* gethostname */
 #include <stdio.h>    
 #include "primme.h"
 #include "common_numerical.h"
@@ -131,17 +133,12 @@ void primme_initialize(primme_params *primme) {
 void *primme_valloc(size_t byteSize, const char *target) {
 
    void *ptr;
-   char machineName[256];
 
-   if ( (ptr = valloc(byteSize)) == NULL) {
-      if (gethostname(machineName, 256) < 0) {
-         fprintf(stderr, "ERROR(primme_valloc): Could not get host name\n");
-      }
-
+   if ( (ptr = malloc(byteSize)) == NULL) {
       perror("primme_alloc");
       fprintf(stderr,
-         "ERROR(primme_alloc): %s Could not allocate %lu bytes for: %s\n",
-         machineName, byteSize, target);
+         "ERROR(primme_alloc): Could not allocate %lu bytes for: %s\n",
+         byteSize, target);
       fflush(stderr);
       exit(EXIT_FAILURE);
    }
@@ -154,17 +151,12 @@ void *primme_valloc(size_t byteSize, const char *target) {
 void *primme_calloc(size_t nelem, size_t elsize, const char *target) {
 
    void *ptr;
-   char machineName[256];
 
    if ((ptr = calloc(nelem, elsize)) == NULL) {
-      if (gethostname(machineName, 256) < 0) {
-         fprintf(stderr, "ERROR(primme_calloc): Could not get host name\n");
-      }
-
       perror("primme_calloc");
       fprintf(stderr, 
-         "ERROR(primme_calloc): %s Could not allocate %lu elements for: %s\n",
-         machineName, nelem, target);
+         "ERROR(primme_calloc): Could not allocate %lu elements of %lu bytes for: %s\n",
+         nelem, elsize, target);
       fflush(stderr);
       exit(EXIT_FAILURE);
    }

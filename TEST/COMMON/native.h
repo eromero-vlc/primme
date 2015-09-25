@@ -1,5 +1,7 @@
-/*  PRIMME PReconditioned Iterative MultiMethod Eigensolver
- *   Copyright (C) 2005  James R. McCombs,  Andreas Stathopoulos
+/*******************************************************************************
+ *   PRIMME PReconditioned Iterative MultiMethod Eigensolver
+ *   Copyright (C) 2015 College of William & Mary,
+ *   James R. McCombs, Eloy Romero Alcalde, Andreas Stathopoulos, Lingfei Wu
  *
  *   This file is part of PRIMME.
  *
@@ -17,24 +19,29 @@
  *   License along with this library; if not, write to the Free Software
  *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
- */
+ *******************************************************************************
+ * File: native.h
+ * 
+ * Purpose - Definitions of CSR matrix functions used by the driver.
+ * 
+ ******************************************************************************/
 
 #ifndef NATIVE_H
+#define NATIVE_H
 
 #include "csr.h"
 #include "primme.h"
 
 void CSRMatrixMatvec(void *x, void *y, int *blockSize, primme_params *primme);
-int createInvDiagPrecNative(const CSRMatrix *matrix, double shift, double **prec);
+int createInvDiagPrecNative(const CSRMatrix *matrix, PRIMME_NUM shift, PRIMME_NUM **prec);
 void ApplyInvDiagPrecNative(void *x, void *y, int *blockSize, 
                                         primme_params *primme);
-int createInvDavidsonDiagPrecNative(const CSRMatrix *matrix, double **prec);
+int createInvDavidsonDiagPrecNative(const CSRMatrix *matrix, PRIMME_NUM **prec);
 void ApplyInvDavidsonDiagPrecNative(void *x, void *y, int *blockSize, 
                                         primme_params *primme);
 int createILUTPrecNative(const CSRMatrix *matrix, double shift, int level,
                          double threshold, double filter, CSRMatrix **prec);
 void ApplyILUTPrecNative(void *x, void *y, int *blockSize, primme_params *primme);
 
-#define NATIVE_H
 #endif
 

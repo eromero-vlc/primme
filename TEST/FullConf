@@ -21,7 +21,7 @@
 // ///////////////////////////////////////////////////////////////////
 
 // Output and reporting
-primme.printLevel         = 3                      // Choices 0, ..., 5
+primme.printLevel         = 4                      // Choices 0, ..., 5
 
 // Solver parameters
 primme.numEvals           = 10

@@ -1,6 +1,7 @@
-/**********************************************************************
+/*******************************************************************************
  *   PRIMME PReconditioned Iterative MultiMethod Eigensolver
- *   Copyright (C) 2005  James R. McCombs,  Andreas Stathopoulos
+ *   Copyright (C) 2015 College of William & Mary,
+ *   James R. McCombs, Eloy Romero Alcalde, Andreas Stathopoulos, Lingfei Wu
  *
  *   This file is part of PRIMME.
  *
@@ -18,9 +19,10 @@
  *   License along with this library; if not, write to the Free Software
  *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
+ *******************************************************************************
  * File: ortho.c
  *
- * Purpose - Othonormalizes a block of vectors, vector by vector, 
+ * Purpose - Orthonormalizes a block of vectors, vector by vector, 
  *           against two bases and among themselves. Gram-Scmidt is used 
  *           with reorthogonalization based on Daniel's test. 
  *           For the purpose of the test, the norm of the resulting vector 
@@ -45,11 +47,7 @@
  *           if err is around 1e-2 it does not affect Daniels test a lot.
  *           Thus, if s0/s1 > 1.49e7, we must compute the actual s1.
  *
- *
- * Module name      : %M%
- * SID              : %I%
- * Date             : %G%
- **********************************************************************/
+ ******************************************************************************/
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -59,10 +57,18 @@
 #include "ortho_@(pre).h"
 #include "wtime.h"
  
-
+#ifdefarithm L_DEFCPLX
+#define ABS(x) sqrt((x).r*(x).r + (x).i*(x).i)
+#endifarithm
+#ifdefarithm L_DEFREAL
+#define ABS(x) fabs(x)
+#endifarithm
+ 
 /**********************************************************************
- * Function ortho - This routine orthonormalizes a block of of vectors 
- * against other vectors in the same array, against a set of locked vectors,
+ * Function ortho - This routine orthonormalizes
+ * a block of of vectors (from b1 to including b2 in basis)
+ * against other vectors in the same array (from 0 to b1-1 in basis),
+ * against a set of locked vectors (from 0 to numLocked-1 in locked),
  * and themselves.
  *
  * The following conditions must always be met: 
@@ -211,12 +217,12 @@ int ortho_@(pre)primme(@(type) *basis, int ldBasis, int b1, int b2,
          if (primme->printLevel > 3 && nOrth == 1 ) {
              { double norm0; int j;
              fprintf(stderr, "ORTH ===\n");
-             for (j=0; j<numLocked; j++) fprintf(stderr, "ORTH %g\n", overlaps[i+j]/sqrt(ztmp));
+             for (j=0; j<numLocked; j++) fprintf(stderr, "ORTH %g\n", ABS(overlaps[i+j])/sqrt(ABS(ztmp)));
              fprintf(stderr, "ORTH ...\n");
-             for (j=0, norm0=0; j<numLocked; norm0+=overlaps[i+j]*overlaps[i+j], j++);
-             printf("ORTHN: %g ", sqrt(norm0/ztmp));
-             for (j=0, norm0=0; j<i; norm0+=overlaps[j]*overlaps[j], j++);
-             printf("%g\n", sqrt(norm0/ztmp)); }
+             for (j=0, norm0=0; j<numLocked; norm0+=ABS(overlaps[i+j])*ABS(overlaps[i+j]), j++);
+             printf("ORTHN: %g ", sqrt(norm0/ABS(ztmp)));
+             for (j=0, norm0=0; j<i; norm0+=ABS(overlaps[j])*ABS(overlaps[j]), j++);
+             printf("%g\n", sqrt(norm0/ABS(ztmp))); }
          }
 
          if (numLocked > 0) { /* locked array most recently accessed */

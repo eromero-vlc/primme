@@ -1,5 +1,7 @@
-/*  PRIMME PReconditioned Iterative MultiMethod Eigensolver
- *   Copyright (C) 2005  James R. McCombs,  Andreas Stathopoulos
+/*******************************************************************************
+ *   PRIMME PReconditioned Iterative MultiMethod Eigensolver
+ *   Copyright (C) 2015 College of William & Mary,
+ *   James R. McCombs, Eloy Romero Alcalde, Andreas Stathopoulos, Lingfei Wu
  *
  *   This file is part of PRIMME.
  *
@@ -17,20 +19,43 @@
  *   License along with this library; if not, write to the Free Software
  *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
- */
+ *******************************************************************************
+ * File: mat.c
+ * 
+ * Purpose - Wrapper implemented with routines that handle matrices in
+ *           CSR format.
+ * 
+ ******************************************************************************/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
 #include "native.h"
+#include <assert.h>
 
-static void getDiagonal(const CSRMatrix *matrix, double *diag);
+static void getDiagonal(const CSRMatrix *matrix, PRIMME_NUM *diag);
 
-void amux_(int*, double*, double*, double*, int*, int*);
-void ilut_(int*, double*, int*, int*, int*, double*, double*, int*, int*, int*, double*,
-           double*, int*, int*, int*, int*);
-void lusol0_(int*, double*, double*, double*, int*, int*);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifndef USE_DOUBLECOMPLEX
+void FORTRAN_FUNCTION(amux)(int*, double*, double*, double*, int*, int*);
+void FORTRAN_FUNCTION(ilut)(int*, double*, int*, int*, int*, double*, double*, int*, int*, int*,
+                            double*, double*, int*, int*, int*, int*);
+void FORTRAN_FUNCTION(lusol0)(int*, double*, double*, double*, int*, int*);
+#else
+void FORTRAN_FUNCTION(zamux)(int*, PRIMME_NUM*, PRIMME_NUM*, PRIMME_NUM*, int*, int*);
+void FORTRAN_FUNCTION(zilut)(int*, PRIMME_NUM*, int*, int*, int*, double*, PRIMME_NUM*, int*, int*, int*,
+                             PRIMME_NUM*, int*, int*);
+void FORTRAN_FUNCTION(zlusol)(int*, PRIMME_NUM*, PRIMME_NUM*, PRIMME_NUM*, int*, int*);
+#endif
+
+#ifdef __cplusplus
+}
+#endif
 
 /******************************************************************************
  * Applies the matrix vector multiplication on a block of vectors.
@@ -42,16 +67,21 @@ void lusol0_(int*, double*, double*, double*, int*, int*);
 void CSRMatrixMatvec(void *x, void *y, int *blockSize, primme_params *primme) {
    
    int i;
-   double *xvec, *yvec;
+   PRIMME_NUM *xvec, *yvec;
    CSRMatrix *matrix;
    
    matrix = (CSRMatrix *)primme->matrix;
-   xvec = (double *)x;
-   yvec = (double *)y;
+   xvec = (PRIMME_NUM *)x;
+   yvec = (PRIMME_NUM *)y;
 
    for (i=0;i<*blockSize;i++) {
-      amux_(&primme->n, &xvec[primme->nLocal*i], &yvec[primme->nLocal*i], 
-            matrix->AElts, matrix->JA, matrix->IA);
+#ifndef USE_DOUBLECOMPLEX
+      FORTRAN_FUNCTION(amux)
+#else
+      FORTRAN_FUNCTION(zamux)
+#endif
+            (&primme->n, &xvec[primme->nLocal*i], &yvec[primme->nLocal*i], 
+             matrix->AElts, matrix->JA, matrix->IA);
    }
 }
 
@@ -63,17 +93,23 @@ void CSRMatrixMatvec(void *x, void *y, int *blockSize, primme_params *primme) {
  *
 ******************************************************************************/
 
-int createInvDiagPrecNative(const CSRMatrix *matrix, double shift, double **prec) {
+int createInvDiagPrecNative(const CSRMatrix *matrix, PRIMME_NUM shift, PRIMME_NUM **prec) {
    int i;
-   double *diag, minDenominator=1e-14;
+   PRIMME_NUM *diag;
+   const double minDenominator=1e-14;
 
-   diag = (double*)primme_calloc(matrix->n, sizeof(double), "diag");
+   diag = (PRIMME_NUM*)primme_calloc(matrix->n, sizeof(PRIMME_NUM), "diag");
    getDiagonal(matrix, diag);
    for (i=0; i<matrix->n; i++)
       diag[i] -= shift;
-   for (i=0; i<matrix->n; i++)
-      if (abs(diag[i]) < minDenominator)
-         diag[i] = copysign(minDenominator, diag[i]);
+   for (i=0; i<matrix->n; i++) {
+      if (ABS(diag[i]) < minDenominator) {
+         if (diag[i] != 0)
+            diag[i] = diag[i]/ABS(diag[i])*minDenominator;
+         else
+            diag[i] = copysign(minDenominator, REAL_PART(diag[i]));
+      }
+   }
    *prec = diag;
    return 1;
 }
@@ -81,12 +117,29 @@ int createInvDiagPrecNative(const CSRMatrix *matrix, double shift, double **prec
 void ApplyInvDiagPrecNative(void *x, void *y, int *blockSize, 
                                         primme_params *primme) {
    int i, j;
-   double *xvec, *yvec, *diag;
-   const int nLocal = primme->nLocal, bs = *blockSize;
+   PRIMME_NUM *xvec, *yvec, shift, *diag;
+   int nLocal = primme->nLocal, bs;
+
+   /* Build precond */
+   if (primme->rebuildPreconditioner) {
+      if (primme->preconditioner) free(primme->preconditioner);
+      if (primme->numberOfShiftsForPreconditioner == 1) {
+         shift = primme->ShiftsForPreconditioner[0];
+      #ifdef USE_DOUBLECOMPLEX
+      } else if (primme->numberOfShiftsForPreconditioner == -1) {
+         shift = ((PRIMME_NUM*)primme->ShiftsForPreconditioner)[0];
+      #endif
+      } else {
+         assert(0);
+      }
+      createInvDiagPrecNative((CSRMatrix*)primme->matrix, shift, (PRIMME_NUM**)&primme->preconditioner);
+      primme->rebuildPreconditioner = 0;
+   }
    
-   diag = (double *)primme->preconditioner;
-   xvec = (double *)x;
-   yvec = (double *)y;
+   diag = (PRIMME_NUM *)primme->preconditioner;
+   xvec = (PRIMME_NUM *)x;
+   yvec = (PRIMME_NUM *)y;
+   bs = blockSize ? *blockSize : 0;
 
    for (i=0; i<bs; i++)
       for (j=0; j<nLocal; j++)
@@ -106,10 +159,10 @@ void ApplyInvDiagPrecNative(void *x, void *y, int *blockSize,
  *
 ******************************************************************************/
 
-int createInvDavidsonDiagPrecNative(const CSRMatrix *matrix, double **prec) {
-   double *diag;
+int createInvDavidsonDiagPrecNative(const CSRMatrix *matrix, PRIMME_NUM **prec) {
+   PRIMME_NUM *diag;
 
-   diag = (double*)primme_calloc(matrix->n, sizeof(double), "diag");
+   diag = (PRIMME_NUM*)primme_calloc(matrix->n, sizeof(PRIMME_NUM), "diag");
    getDiagonal(matrix, diag);
    *prec = diag;
    return 1;
@@ -118,12 +171,13 @@ int createInvDavidsonDiagPrecNative(const CSRMatrix *matrix, double **prec) {
 void ApplyInvDavidsonDiagPrecNative(void *x, void *y, int *blockSize, 
                                         primme_params *primme) {
    int i, j;
-   double *xvec, *yvec, *diag, shift, d, minDenominator;
+   double *diag, shift, d, minDenominator;
+   PRIMME_NUM *xvec, *yvec;
    const int nLocal = primme->nLocal, bs = *blockSize;
    
    diag = (double *)primme->preconditioner;
-   xvec = (double *)x;
-   yvec = (double *)y;
+   xvec = (PRIMME_NUM *)x;
+   yvec = (PRIMME_NUM *)y;
    minDenominator = 1e-14*(primme->aNorm >= 0.0L ? primme->aNorm : 1.);
 
    for (i=0; i<bs; i++) {
@@ -148,6 +202,52 @@ void ApplyInvDavidsonDiagPrecNative(void *x, void *y, int *blockSize,
 
 int createILUTPrecNative(const CSRMatrix *matrix, double shift, int level,
                          double threshold, double filter, CSRMatrix **prec) {
+#ifdef USE_DOUBLECOMPLEX
+   int ierr;
+   int lenFactors;
+   PRIMME_NUM *W;
+   int *iW;
+   CSRMatrix *factors;
+
+   if (shift != 0.0) {
+      shiftCSRMatrix(-shift, (CSRMatrix*)matrix);
+   }
+
+   /* Work arrays */
+   W = (PRIMME_NUM *)primme_calloc(matrix->n+1, sizeof(PRIMME_NUM), "W");
+   iW = (int *)primme_calloc(matrix->n*2, sizeof(int), "iW");
+
+   /* Max size of factorization */
+   lenFactors = 9*matrix->nnz;
+
+   factors = (CSRMatrix *)primme_calloc(1,  sizeof(CSRMatrix), "factors");
+   factors->AElts = (PRIMME_NUM *)primme_calloc(lenFactors,
+                                sizeof(PRIMME_NUM), "iluElts");
+   factors->JA = (int *)primme_calloc(lenFactors, sizeof(int), "Jilu");
+   factors->IA = (int *)primme_calloc(matrix->n+1, sizeof(int), "Iilu");
+   factors->n = matrix->n;
+   factors->nnz = lenFactors;
+   
+   FORTRAN_FUNCTION(zilut)
+         ((int*)&matrix->n, (PRIMME_NUM*)matrix->AElts, (int*)matrix->JA,
+          (int*)matrix->IA, &level, &threshold,
+          factors->AElts, factors->JA, factors->IA, &lenFactors, W, iW, &ierr);
+   
+   if (ierr != 0)  {
+      fprintf(stderr, "ZILUT factorization could not be completed\n");
+      return(-1);
+   }
+
+   if (shift != 0.0L) {
+      shiftCSRMatrix(shift, (CSRMatrix*)matrix);
+   }
+
+   /* free workspace */
+   free(W); free(iW);
+
+   *prec = factors;
+   return 0;
+#else
    int ierr;
    int lenFactors;
    double *W1, *W2;
@@ -155,7 +255,7 @@ int createILUTPrecNative(const CSRMatrix *matrix, double shift, int level,
    CSRMatrix *factors;
 
    if (shift != 0.0) {
-      shiftCSRMatrix(-shift, matrix->n, matrix->IA, matrix->JA, matrix->AElts);
+      shiftCSRMatrix(-shift, (CSRMatrix*)matrix);
    }
 
    /* Work arrays */
@@ -174,7 +274,8 @@ int createILUTPrecNative(const CSRMatrix *matrix, double shift, int level,
    factors->n = matrix->n;
    factors->nnz = lenFactors;
    
-   ilut_((int*)&matrix->n, (double*)matrix->AElts, (int*)matrix->JA,
+   FORTRAN_FUNCTION(ilut)
+        ((int*)&matrix->n, (double*)matrix->AElts, (int*)matrix->JA,
          (int*)matrix->IA, &level, &threshold,
          factors->AElts, factors->JA, factors->IA, &lenFactors, 
          W1, W2, iW1, iW2, iW3, &ierr);
@@ -185,7 +286,7 @@ int createILUTPrecNative(const CSRMatrix *matrix, double shift, int level,
    }
 
    if (shift != 0.0L) {
-      shiftCSRMatrix(shift, matrix->n, matrix->IA, matrix->JA, matrix->AElts);
+      shiftCSRMatrix(shift, (CSRMatrix*)matrix);
    }
 
    /* free workspace */
@@ -193,19 +294,25 @@ int createILUTPrecNative(const CSRMatrix *matrix, double shift, int level,
 
    *prec = factors;
    return 0;
+#endif
 }
 
 void ApplyILUTPrecNative(void *x, void *y, int *blockSize, primme_params *primme) {
    int i;
-   double *xvec, *yvec;
+   PRIMME_NUM *xvec, *yvec;
    CSRMatrix *prec;
    
    prec = (CSRMatrix *)primme->preconditioner;
-   xvec = (double *)x;
-   yvec = (double *)y;
+   xvec = (PRIMME_NUM *)x;
+   yvec = (PRIMME_NUM *)y;
 
    for (i=0; i<*blockSize; i++) {
-      lusol0_(&primme->n, &xvec[primme->n*i], &yvec[primme->n*i],
+#ifdef USE_DOUBLECOMPLEX
+      FORTRAN_FUNCTION(zlusol)
+#else
+      FORTRAN_FUNCTION(lusol0)
+#endif
+             (&primme->n, &xvec[primme->n*i], &yvec[primme->n*i],
               prec->AElts, prec->JA, prec->IA);
    }
 }
@@ -218,7 +325,7 @@ void ApplyILUTPrecNative(void *x, void *y, int *blockSize, primme_params *primme
  *
  * This will be used with solver provided shifts as (P-shift_i)^(-1) 
 ******************************************************************************/
-static void getDiagonal(const CSRMatrix *matrix, double *diag) {
+static void getDiagonal(const CSRMatrix *matrix, PRIMME_NUM *diag) {
    int i, j;
 
    /* IA and JA are indexed using C indexing, but their contents */
@@ -229,7 +336,7 @@ static void getDiagonal(const CSRMatrix *matrix, double *diag) {
       diag[i] = 0.;
       for (j=matrix->IA[i]; j <= matrix->IA[i+1]-1; j++) {
          if (matrix->JA[j-1]-1 == i) {
-            diag[i] = matrix->AElts[j-1];
+            diag[i] = REAL_PART(matrix->AElts[j-1]);
          }
       }
    }
