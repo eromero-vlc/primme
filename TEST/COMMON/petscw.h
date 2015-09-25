@@ -37,7 +37,9 @@ int readMatrixPetsc(const char* matrixFileName, int *m, int *n, int *mLocal, int
                     int *numProcs, int *procID, Mat **matrix, double *fnorm_, int **perm);
 void PETScMatvec(void *x, void *y, int *blockSize, primme_params *primme);
 void ApplyPCPrecPETSC(void *x, void *y, int *blockSize, primme_params *primme);
-
+void ApplyInvDavidsonDiagPrecPETSc(void *x, void *y, int *blockSize, 
+                                        primme_params *primme);
+ 
 #define PETSCW_H
 #endif
 

@@ -14,12 +14,7 @@ LIBDIRS += -L../
 USE_NATIVE    ?= yes
 USE_PETSC     ?= $(if $(findstring undefined,$(origin PETSC_DIR)),no,yes)
 USE_PARASAILS ?= $(if $(findstring undefined,$(origin PARASAILS_LIB_DIR)),no,yes)
-USE_MPI       ?= $(if $(findstring mpi,$(CC)),yes,no)
 USE_FILTLAN   ?= no
-
-ifeq ($(USE_MPI), yes)
-  DEFINES += -DUSE_MPI
-endif
 
 ifeq ($(USE_NATIVE), yes)
   DEFINES += -DUSE_NATIVE
@@ -34,7 +29,7 @@ ifeq ($(USE_PARASAILS), yes)
   endif
   DEFINES += -DUSE_PARASAILS
   SOBJS += COMMON/parasailsw.o COMMON/csr.o COMMON/ssrcsr.o COMMON/mmio.o
-  INCLUDE += -I$(PARASAILS_INCLUDE_DIR)
+  override INCLUDE += -I$(PARASAILS_INCLUDE_DIR)
   LIBDIRS += -L$(PARASAILS_LIB_DIR)
   LIBS += -lParaSails
 endif
@@ -43,7 +38,7 @@ ifeq ($(USE_PETSC), yes)
   include ${PETSC_DIR}/lib/petsc/conf/variables
   DEFINES += -DUSE_PETSC
   SOBJS += COMMON/petscw.o COMMON/mmio.o
-  INCLUDE += $(PETSC_CCPPFLAGS)
+  override INCLUDE += $(PETSC_CCPPFLAGS)
   FINCLUDE += $(PETSC_FCPPFLAGS)
   LIBDIRS += $(PETSC_C_SH_LIB_PATH)
   LIBS += $(PETSC_LIB)
@@ -60,6 +55,11 @@ ifeq ($(USE_FEAST), yes)
   LIBDIRS += -L$(FEAST_DIR)
   override LIBS += -lfeast -lgfortran
   DEFINES += -DUSE_FEAST
+endif
+
+USE_MPI       ?= $(if $(findstring mpi,$(CC)),yes,no)
+ifeq ($(USE_MPI), yes)
+  DEFINES += -DUSE_MPI
 endif
 
 
@@ -123,11 +123,15 @@ ifeq ($(USE_MPI), yes)
   MPIRUN ?= mpirun -np 4
 endif
 
+TESTS_ADD ?=
+
 all_tests_double: primme_double
 	@echo "Please wait, this could take a while...";\
 	ok="0";for i in tests/test_??? ; do \
 		echo "********** Test $$i double ***********"; \
-		$(MPIRUN) ./primme_double $$i || ok="1"; \
+		cat $$i > ._test00; echo '$(TESTS_ADD)' >> ._test00;\
+		$(MPIRUN) ./primme_double ._test00 || ok="1"; \
+		rm ._test00;\
 	done > tests.log 2>&1;\
 	if test $$ok -eq 0 ; then \
 		echo "All tests passed!"; \
@@ -142,7 +146,7 @@ all_tests_doublecomplex: primme_doublecomplex
 	@echo "Please wait, this could take a while...";\
 	ok="0";	for i in tests/test_??? ; do \
 		echo "********** Test $$i complex ***********"; \
-		sed 's/sol_.../&.complex/' $$i > ._test00;\
+		sed 's/sol_.../&.complex/' $$i > ._test00; echo '$(TESTS_ADD)' >> ._test00;\
 		$(MPIRUN) ./primme_doublecomplex ._test00 || ok="1"; \
 		rm ._test00;\
 	done > tests.log 2>&1;\
@@ -158,7 +162,7 @@ all_tests_doublecomplex: primme_doublecomplex
 
 all_tests_double_save: primme_double
 	@for i in tests/test_??? ; do \
-		sed 's/checkXFile/saveXFile/' $$i > ._test00;\
+		sed 's/checkXFile/saveXFile/' $$i > ._test00; echo '$(TESTS_ADD)' >> ._test00;\
 		echo "********** Test $$i double ***********"; \
 		./primme_double ._test00 || ok="1"; \
 	done > tests.log 2>&1;\
@@ -166,7 +170,7 @@ all_tests_double_save: primme_double
 
 all_tests_doublecomplex_save: primme_doublecomplex
 	@for i in tests/test_??? ; do \
-		sed 's/checkXFile/saveXFile/;s/sol_.../&.complex/' $$i > ._test00;\
+		sed 's/checkXFile/saveXFile/;s/sol_.../&.complex/' $$i > ._test00; echo '$(TESTS_ADD)' >> ._test00;\
 		echo "********** Test $$i complex ***********"; \
 		./primme_doublecomplex ._test00 || ok="1"; \
 	done > tests.log 2>&1;\

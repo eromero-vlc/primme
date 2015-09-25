@@ -290,7 +290,11 @@ void PETScMatvec(void *x, void *y, int *blockSize, primme_params *primme) {
    assert(sizeof(PetscScalar) == sizeof(PRIMME_NUM));   
    matrix = (Mat *)primme->matrix;
 
+   #if PETSC_VERSION_LT(3,6,0)
+   ierr = MatGetVecs(*matrix, &xvec, &yvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+   #else
    ierr = MatCreateVecs(*matrix, &xvec, &yvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+   #endif
    for (i=0; i<*blockSize; i++) {
       ierr = VecPlaceArray(xvec, ((PetscScalar*)x) + primme->nLocal*i); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
       ierr = VecPlaceArray(yvec, ((PetscScalar*)y) + primme->nLocal*i); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
@@ -303,18 +307,41 @@ void PETScMatvec(void *x, void *y, int *blockSize, primme_params *primme) {
 }
 
 void ApplyPCPrecPETSC(void *x, void *y, int *blockSize, primme_params *primme) {
-   int i;
+   int i,bs;
    Mat *matrix;
    PC *pc;
    Vec xvec, yvec;
+   PetscScalar shift;
    PetscErrorCode ierr;
    
    assert(sizeof(PetscScalar) == sizeof(PRIMME_NUM));   
    matrix = (Mat *)primme->matrix;
    pc = (PC *)primme->preconditioner;
 
+   /* Build preconditioner */
+   if (primme->rebuildPreconditioner) {
+      if (primme->numberOfShiftsForPreconditioner == 1) {
+         shift = primme->ShiftsForPreconditioner[0];
+      #ifdef USE_DOUBLECOMPLEX
+      } else if (primme->numberOfShiftsForPreconditioner == -1) {
+         shift = ((PRIMME_NUM*)primme->ShiftsForPreconditioner)[0];
+      #endif
+      } else {
+         assert(0);
+      }
+      ierr = MatShift(*matrix, -shift); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+      ierr = PCSetOperators(*pc, *matrix, *matrix); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+      ierr = PCSetUp(*pc); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+      ierr = MatShift(*matrix, shift);CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+      primme->rebuildPreconditioner = 0;
+   }
+
+   #if PETSC_VERSION_LT(3,6,0)
+   ierr = MatGetVecs(*matrix, &xvec, &yvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+   #else
    ierr = MatCreateVecs(*matrix, &xvec, &yvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
-   for (i=0; i<*blockSize; i++) {
+   #endif
+   for (i=0,bs=blockSize?*blockSize:0; i<bs; i++) {
       ierr = VecPlaceArray(xvec, ((PetscScalar*)x) + primme->nLocal*i); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
       ierr = VecPlaceArray(yvec, ((PetscScalar*)y) + primme->nLocal*i); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
       ierr = PCApply(*pc, xvec, yvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
@@ -327,10 +354,10 @@ void ApplyPCPrecPETSC(void *x, void *y, int *blockSize, primme_params *primme) {
 
 void ApplyInvDavidsonDiagPrecPETSc(void *x, void *y, int *blockSize, 
                                         primme_params *primme) {
-   int i, j;
+   int i, j, bs;
    double shift, d, minDenominator;
    PRIMME_NUM *xvec, *yvec;
-   const int nLocal = primme->nLocal, bs = *blockSize;
+   const int nLocal = primme->nLocal;
    const PetscScalar *diag;
    Vec vec;
    PetscErrorCode ierr;
@@ -339,14 +366,23 @@ void ApplyInvDavidsonDiagPrecPETSc(void *x, void *y, int *blockSize,
    xvec = (PRIMME_NUM *)x;
    yvec = (PRIMME_NUM *)y;
    minDenominator = 1e-14*(primme->aNorm >= 0.0L ? primme->aNorm : 1.);
+   bs = blockSize ? *blockSize : 0;
 
    ierr = VecGetArrayRead(vec, &diag); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
    for (i=0; i<bs; i++) {
-      shift = primme->ShiftsForPreconditioner[i];
+      if (primme->numberOfShiftsForPreconditioner > 0) {
+         shift = primme->ShiftsForPreconditioner[min(primme->numberOfShiftsForPreconditioner-1,i)];
+      #ifdef USE_DOUBLECOMPLEX
+      } else if (primme->numberOfShiftsForPreconditioner < 0) {
+         shift = ((PRIMME_NUM*)primme->ShiftsForPreconditioner)[min(-primme->numberOfShiftsForPreconditioner-1,i)];
+      #endif
+      } else {
+         assert(0);
+      }
       for (j=0; j<nLocal; j++) {
          d = diag[j] - shift;
-         d = (fabs(d) > minDenominator) ? d : copysign(minDenominator, d);
-         yvec[primme->n*i+j] = xvec[primme->n*i+j]/d;
+         d = (PetscAbsScalar(d) > minDenominator) ? d : ((d != 0) ? d/PetscAbsScalar(d) : 1.)*minDenominator;
+         yvec[nLocal*i+j] = xvec[nLocal*i+j]/d;
       }
    }
    ierr = VecRestoreArrayRead(vec, &diag); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);

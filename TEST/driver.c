@@ -216,17 +216,32 @@ static int real_main (int argc, char *argv[]) {
    /* --------------------------------------- */
    if (setMatrixAndPrecond(&driver, primme, &permutation) != 0) return -1;
 
-   /* --------------------------------------- */
-   /* Pick one of the default methods(if set) */
-   /* --------------------------------------- */
-   if (primme_set_method(method, primme) < 0 ) {
-      fprintf(primme->outputFile, "No preset method. Using custom settings\n");
+   if (master) {
+      /* --------------------------------------- */
+      /* Pick one of the default methods(if set) */
+      /* --------------------------------------- */
+      if (primme_set_method(method, primme) < 0 ) {
+         fprintf(primme->outputFile, "No preset method. Using custom settings\n");
+      }
+
+      /* --------------------------------------- */
+      /* Reread the PRIMME configuration file to */
+      /* some override primme_set_method changes */
+      /* --------------------------------------- */
+       if (read_solver_params(SolverConfigFileName, driver.outputFileName, 
+                              primme, &method) < 0) {
+         fprintf(stderr, "Reading solver parameters failed\n");
+         return(-1);
+      }
    }
-   if (read_solver_params(SolverConfigFileName, driver.outputFileName, 
-                           primme, &method) < 0) {
-      fprintf(stderr, "Reading solver parameters failed\n");
-      return(-1);
-   }
+
+#ifdef USE_MPI
+   /* ------------------------------------------------- */
+   /* Send read common primme members to all processors */ 
+   /* Setup the primme members local to this processor  */ 
+   /* ------------------------------------------------- */
+   broadCast(primme, &method, &driver, master, comm);
+#endif
 
    /* --------------------------------------- */
    /* Optional: report memory requirements    */
@@ -451,6 +466,25 @@ static void broadCast(primme_params *primme, primme_preset_method *method,
    MPI_Bcast(&driver->filter, 1, MPI_DOUBLE, 0, comm);
    MPI_Bcast(&driver->shift, 1, MPI_DOUBLE, 0, comm);
 
+   MPI_Bcast(&driver->AFilter.filter, 1, MPI_INT, 0, comm);
+   MPI_Bcast(&driver->AFilter.degrees, 1, MPI_INT, 0, comm);
+   MPI_Bcast(&driver->AFilter.lowerBound, 1, MPI_INT, 0, comm);
+   MPI_Bcast(&driver->AFilter.upperBound, 1, MPI_INT, 0, comm);
+   MPI_Bcast(&driver->AFilter.lowerBoundFix, 1, MPI_DOUBLE, 0, comm);
+   MPI_Bcast(&driver->AFilter.upperBoundFix, 1, MPI_DOUBLE, 0, comm);
+   MPI_Bcast(&driver->precFilter.filter, 1, MPI_INT, 0, comm);
+   MPI_Bcast(&driver->precFilter.degrees, 1, MPI_INT, 0, comm);
+   MPI_Bcast(&driver->precFilter.lowerBound, 1, MPI_INT, 0, comm);
+   MPI_Bcast(&driver->precFilter.upperBound, 1, MPI_INT, 0, comm);
+   MPI_Bcast(&driver->precFilter.lowerBoundFix, 1, MPI_DOUBLE, 0, comm);
+   MPI_Bcast(&driver->precFilter.upperBoundFix, 1, MPI_DOUBLE, 0, comm);
+   MPI_Bcast(&driver->orthoFilter.filter, 1, MPI_INT, 0, comm);
+   MPI_Bcast(&driver->orthoFilter.degrees, 1, MPI_INT, 0, comm);
+   MPI_Bcast(&driver->orthoFilter.lowerBound, 1, MPI_INT, 0, comm);
+   MPI_Bcast(&driver->orthoFilter.upperBound, 1, MPI_INT, 0, comm);
+   MPI_Bcast(&driver->orthoFilter.lowerBoundFix, 1, MPI_DOUBLE, 0, comm);
+   MPI_Bcast(&driver->orthoFilter.upperBoundFix, 1, MPI_DOUBLE, 0, comm);
+
    MPI_Bcast(&(primme->numEvals), 1, MPI_INT, 0, comm);
    MPI_Bcast(&(primme->target), 1, MPI_INT, 0, comm);
    MPI_Bcast(&(primme->numTargetShifts), 1, MPI_INT, 0, comm);
@@ -498,7 +532,7 @@ static void broadCast(primme_params *primme, primme_preset_method *method,
 static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int **permutation) {
    int numProcs=1;
 
-#  if defined(USE_MPI)
+#  if defined(USE_MPI) || defined(USE_PETSC)
    MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
    primme->commInfo = (MPI_Comm *)primme_calloc(1, sizeof(MPI_Comm), "MPI_Comm");
    *(MPI_Comm*)primme->commInfo = MPI_COMM_WORLD;
@@ -532,8 +566,7 @@ static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int
       *(MPI_Comm*)primme->commInfo = MPI_COMM_WORLD;
 #  endif
       {
-         CSRMatrix *matrix, *prec;
-         PRIMME_NUM *diag;
+         CSRMatrix *matrix;
          
          if (readMatrixNative(driver->matrixFileName, &matrix, &primme->aNorm) !=0 )
             return -1;
@@ -542,26 +575,21 @@ static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int
          primme->n = primme->nLocal = matrix->n;
          switch(driver->PrecChoice) {
          case driver_noprecond:
-            primme->preconditioner = NULL;
             primme->applyPreconditioner = NULL;
             break;
          case driver_jacobi:
-            primme->preconditioner = NULL;
             primme->applyPreconditioner = ApplyInvDiagPrecNative;
             break;
          case driver_jacobi_i:
-            createInvDavidsonDiagPrecNative(matrix, &diag);
-            primme->preconditioner = diag;
             primme->applyPreconditioner = ApplyInvDavidsonDiagPrecNative;
+            break; 
          case driver_ilut:
-            createILUTPrecNative(matrix, driver->shift, driver->level, driver->threshold,
-                                 driver->filter, &prec);
-            primme->preconditioner = prec;
             primme->applyPreconditioner = ApplyILUTPrecNative;
             break;
          case driver_filter:
             break;
          }
+         primme->preconditioner = NULL;
       }
 #endif
       break;
@@ -621,26 +649,32 @@ static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int
             }
             else if (driver->PrecChoice == driver_ilut) {
                if (primme->numProcs <= 1) {
-                  ierr = PCSetType(*pc, PCICC); CHKERRQ(ierr);
+                  ierr = PCSetType(*pc, PCILU); CHKERRQ(ierr);
                }
                else {
-                  ierr = PCSetType(*pc, PCHYPRE); CHKERRQ(ierr);
-                  ierr = PCHYPRESetType(*pc, "parasails"); CHKERRQ(ierr);
+                  #ifndef USE_DOUBLECOMPLEX
+                     ierr = PCSetType(*pc, PCHYPRE); CHKERRQ(ierr);
+                     ierr = PCHYPRESetType(*pc, "parasails"); CHKERRQ(ierr);
+                  #else
+                     ierr = PCSetType(*pc, PCBJACOBI); CHKERRQ(ierr);
+                  #endif
                }
             }
-
             ierr = PCSetOperators(*pc, *matrix, *matrix); CHKERRQ(ierr);
             ierr = PCSetFromOptions(*pc); CHKERRQ(ierr);
-            ierr = PCSetUp(*pc); CHKERRQ(ierr);
             primme->preconditioner = pc;
             primme->applyPreconditioner = ApplyPCPrecPETSC;
          }
          else {
             vec = (Vec *)primme_calloc(1, sizeof(Vec), "Vec preconditioner");
+            #if PETSC_VERSION_LT(3,6,0)
+            ierr = MatGetVecs(*matrix, vec, NULL); CHKERRQ(ierr);
+            #else
             ierr = MatCreateVecs(*matrix, vec, NULL); CHKERRQ(ierr);
+            #endif
             ierr = MatGetDiagonal(*matrix, *vec); CHKERRQ(ierr);
             primme->preconditioner = vec;
-            primme->applyPreconditioner = ApplyPCPrecPETSC;
+            primme->applyPreconditioner = ApplyInvDavidsonDiagPrecPETSc;
          }
       }
 #endif
@@ -672,10 +706,7 @@ static int destroyMatrixAndPrecond(driver_params *driver, primme_params *primme,
       fprintf(stderr, "ERROR: NATIVE is needed!\n");
       return -1;
 #else
-      free(((CSRMatrix*)primme->matrix)->AElts);
-      free(((CSRMatrix*)primme->matrix)->IA);
-      free(((CSRMatrix*)primme->matrix)->JA);
-      free(primme->matrix);
+      freeCSRMatrix((CSRMatrix*)primme->matrix);
 
       switch(driver->PrecChoice) {
       case driver_noprecond:

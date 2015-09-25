@@ -256,7 +256,7 @@ double frobeniusNorm(const CSRMatrix *matrix) {
  *         A = A + shift I
  *
 ******************************************************************************/
-void shiftCSRMatrix(double shift, CSRMatrix *matrix) {
+void shiftCSRMatrix(PRIMME_NUM shift, CSRMatrix *matrix) {
 
    int i, j, n;
 
@@ -273,6 +273,14 @@ void shiftCSRMatrix(double shift, CSRMatrix *matrix) {
       }
    }
 
+}
+
+void freeCSRMatrix(CSRMatrix *matrix) {
+   if (!matrix) return;
+   free(matrix->AElts);
+   free(matrix->IA);
+   free(matrix->JA);
+   free(matrix);
 }
 
 

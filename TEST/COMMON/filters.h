@@ -1,7 +1,6 @@
 /*******************************************************************************
  *   PRIMME PReconditioned Iterative MultiMethod Eigensolver
- *   Copyright (C) 2015 College of William & Mary,
- *   James R. McCombs, Eloy Romero Alcalde, Andreas Stathopoulos, Lingfei Wu
+ *   Copyright (C) 2005  James R. McCombs,  Andreas Stathopoulos
  *
  *   This file is part of PRIMME.
  *
@@ -18,31 +17,40 @@
  *   You should have received a copy of the GNU Lesser General Public
  *   License along with this library; if not, write to the Free Software
  *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
- *******************************************************************************
- * File: csr.h
- * 
- * Purpose - Definitions of CSR functions used by the driver.
- * 
  ******************************************************************************/
 
-#ifndef CSR_H
+#ifndef FILTERS_H
 
-#include "num.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <math.h>
+#include "primme.h"
 
-typedef struct {
-   int *JA;
-   int *IA;
-   PRIMME_NUM *AElts;
-   int m; /* number of rows */
-   int n; /* number of columns */
-   int nnz;
-} CSRMatrix;
+typedef struct filter_params {
+   int filter;
+   int degrees;
+   int lowerBound;
+   int upperBound;
+   double lowerBoundFix;
+   double upperBoundFix;
+   int prodIfFullRange;
+   double minEig, maxEig;
+   void (*matvec)
+      ( void *x,  void *y, int *blockSize, struct primme_params *primme);
+   void (*precond)
+      ( void *x,  void *y, int *blockSize, struct primme_params *primme);
+} filter_params;
 
-int readMatrixNative(const char* matrixFileName, CSRMatrix **matrix_, double *fnorm);
-double frobeniusNorm(const CSRMatrix *matrix);
-void shiftCSRMatrix(PRIMME_NUM shift, CSRMatrix *matrix);
-void freeCSRMatrix(CSRMatrix *matrix);
 
-#define CSR_H
+void Apply_filter(void *x, void *y, int *blockSize, filter_params *filter,
+                  primme_params *primme, int stats);
+void plot_filter(int n, filter_params *filter, primme_params *primme, FILE *out);
+
+// Please, don't use global variables!
+extern double elapsedTimeAMV, elapsedTimeFilterMV;
+extern int numFilterApplies;
+
+#define FILTERS_H
 #endif

@@ -32,8 +32,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
-#include "native.h"
 #include <assert.h>
+#include "native.h"
+#include "shared_utils.h"
 
 static void getDiagonal(const CSRMatrix *matrix, PRIMME_NUM *diag);
 
@@ -93,7 +94,7 @@ void CSRMatrixMatvec(void *x, void *y, int *blockSize, primme_params *primme) {
  *
 ******************************************************************************/
 
-int createInvDiagPrecNative(const CSRMatrix *matrix, PRIMME_NUM shift, PRIMME_NUM **prec) {
+static int createInvDiagPrecNative(const CSRMatrix *matrix, PRIMME_NUM shift, PRIMME_NUM **prec) {
    int i;
    PRIMME_NUM *diag;
    const double minDenominator=1e-14;
@@ -120,7 +121,7 @@ void ApplyInvDiagPrecNative(void *x, void *y, int *blockSize,
    PRIMME_NUM *xvec, *yvec, shift, *diag;
    int nLocal = primme->nLocal, bs;
 
-   /* Build precond */
+   /* Build preconditioner */
    if (primme->rebuildPreconditioner) {
       if (primme->preconditioner) free(primme->preconditioner);
       if (primme->numberOfShiftsForPreconditioner == 1) {
@@ -159,7 +160,7 @@ void ApplyInvDiagPrecNative(void *x, void *y, int *blockSize,
  *
 ******************************************************************************/
 
-int createInvDavidsonDiagPrecNative(const CSRMatrix *matrix, PRIMME_NUM **prec) {
+static int createInvDavidsonDiagPrecNative(const CSRMatrix *matrix, PRIMME_NUM **prec) {
    PRIMME_NUM *diag;
 
    diag = (PRIMME_NUM*)primme_calloc(matrix->n, sizeof(PRIMME_NUM), "diag");
@@ -170,21 +171,36 @@ int createInvDavidsonDiagPrecNative(const CSRMatrix *matrix, PRIMME_NUM **prec) 
 
 void ApplyInvDavidsonDiagPrecNative(void *x, void *y, int *blockSize, 
                                         primme_params *primme) {
+   double minDenominator;
    int i, j;
-   double *diag, shift, d, minDenominator;
-   PRIMME_NUM *xvec, *yvec;
-   const int nLocal = primme->nLocal, bs = *blockSize;
+   PRIMME_NUM *xvec, *yvec, shift, *diag, d;
+   int nLocal = primme->nLocal, bs;
+
+
+   /* Build preconditioner */
+   if (!primme->preconditioner) {
+      createInvDavidsonDiagPrecNative((CSRMatrix*)primme->matrix, (PRIMME_NUM**)&primme->preconditioner);
+   }
    
-   diag = (double *)primme->preconditioner;
+   diag = (PRIMME_NUM *)primme->preconditioner;
    xvec = (PRIMME_NUM *)x;
    yvec = (PRIMME_NUM *)y;
    minDenominator = 1e-14*(primme->aNorm >= 0.0L ? primme->aNorm : 1.);
+   bs = blockSize ? *blockSize : 0;
 
    for (i=0; i<bs; i++) {
-      shift = primme->ShiftsForPreconditioner[i];
+      if (primme->numberOfShiftsForPreconditioner > 0) {
+         shift = primme->ShiftsForPreconditioner[min(primme->numberOfShiftsForPreconditioner-1,i)];
+      #ifdef USE_DOUBLECOMPLEX
+      } else if (primme->numberOfShiftsForPreconditioner < 0) {
+         shift = ((PRIMME_NUM*)primme->ShiftsForPreconditioner)[min(-primme->numberOfShiftsForPreconditioner-1,i)];
+      #endif
+      } else {
+         assert(0);
+      }
       for (j=0; j<nLocal; j++) {
          d = diag[j] - shift;
-         d = (fabs(d) > minDenominator) ? d : copysign(minDenominator, d);
+         d = (ABS(d) > minDenominator) ? d : ((d != 0) ? d/ABS(d) : 1.)*minDenominator;
          yvec[primme->n*i+j] = xvec[primme->n*i+j]/d;
       }
    }
@@ -200,8 +216,8 @@ void ApplyInvDavidsonDiagPrecNative(void *x, void *y, int *blockSize,
  *
 ******************************************************************************/
 
-int createILUTPrecNative(const CSRMatrix *matrix, double shift, int level,
-                         double threshold, double filter, CSRMatrix **prec) {
+static int createILUTPrecNative(const CSRMatrix *matrix, PRIMME_NUM shift, int level,
+                                double threshold, double filter, CSRMatrix **prec) {
 #ifdef USE_DOUBLECOMPLEX
    int ierr;
    int lenFactors;
@@ -298,15 +314,34 @@ int createILUTPrecNative(const CSRMatrix *matrix, double shift, int level,
 }
 
 void ApplyILUTPrecNative(void *x, void *y, int *blockSize, primme_params *primme) {
-   int i;
-   PRIMME_NUM *xvec, *yvec;
+   int i, bs;
+   PRIMME_NUM *xvec, *yvec, shift;
    CSRMatrix *prec;
+   driver_params *driver = (driver_params*)primme;
    
+   /* Build preconditioner */
+   if (primme->rebuildPreconditioner) {
+      if (primme->preconditioner) freeCSRMatrix((CSRMatrix*)primme->preconditioner);
+      if (primme->numberOfShiftsForPreconditioner == 1) {
+         shift = primme->ShiftsForPreconditioner[0];
+      #ifdef USE_DOUBLECOMPLEX
+      } else if (primme->numberOfShiftsForPreconditioner == -1) {
+         shift = ((PRIMME_NUM*)primme->ShiftsForPreconditioner)[0];
+      #endif
+      } else {
+         assert(0);
+      }
+      createILUTPrecNative((CSRMatrix*)primme->matrix, shift, driver->level, driver->threshold,
+                           driver->filter, (CSRMatrix**)&primme->preconditioner);
+      primme->rebuildPreconditioner = 0;
+   }
+
    prec = (CSRMatrix *)primme->preconditioner;
    xvec = (PRIMME_NUM *)x;
    yvec = (PRIMME_NUM *)y;
+   bs = blockSize ? *blockSize : 0;
 
-   for (i=0; i<*blockSize; i++) {
+   for (i=0; i<bs; i++) {
 #ifdef USE_DOUBLECOMPLEX
       FORTRAN_FUNCTION(zlusol)
 #else

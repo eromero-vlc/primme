@@ -33,14 +33,10 @@
 #include "primme.h"
 
 void CSRMatrixMatvec(void *x, void *y, int *blockSize, primme_params *primme);
-int createInvDiagPrecNative(const CSRMatrix *matrix, PRIMME_NUM shift, PRIMME_NUM **prec);
 void ApplyInvDiagPrecNative(void *x, void *y, int *blockSize, 
                                         primme_params *primme);
-int createInvDavidsonDiagPrecNative(const CSRMatrix *matrix, PRIMME_NUM **prec);
 void ApplyInvDavidsonDiagPrecNative(void *x, void *y, int *blockSize, 
                                         primme_params *primme);
-int createILUTPrecNative(const CSRMatrix *matrix, double shift, int level,
-                         double threshold, double filter, CSRMatrix **prec);
 void ApplyILUTPrecNative(void *x, void *y, int *blockSize, primme_params *primme);
 
 #endif
