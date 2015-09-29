@@ -372,8 +372,10 @@ int solve_correction_dprimme(double *V, double *W, double *evecs,
          /* GD: compute K^{-1}r , or approx.Olsen: K^{-1}(r-ex) */
 
          
-         if (primme->correctionParams.precondition)
+         if (primme->correctionParams.precondition && primme->applyPrecondTo == primme_x)
             Num_dcopy_dprimme(primme->nLocal*blockSize, x, 1, r, 1);
+         if (primme->correctionParams.precondition && primme->applyPrecondTo == primme_lastv)
+            Num_dcopy_dprimme(primme->nLocal*blockSize, &V[primme->nLocal*(basisSize-blockSize)], 1, r, 1);
          apply_preconditioner_block(r, x, blockSize, primme );
       }
    }

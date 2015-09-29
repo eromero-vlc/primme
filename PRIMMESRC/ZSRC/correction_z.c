@@ -372,8 +372,10 @@ int solve_correction_zprimme(Complex_Z *V, Complex_Z *W, Complex_Z *evecs,
          /* GD: compute K^{-1}r , or approx.Olsen: K^{-1}(r-ex) */
 
          
-         if (primme->correctionParams.precondition)
+         if (primme->correctionParams.precondition && primme->applyPrecondTo == primme_x)
             Num_zcopy_zprimme(primme->nLocal*blockSize, x, 1, r, 1);
+         if (primme->correctionParams.precondition && primme->applyPrecondTo == primme_lastv)
+            Num_zcopy_zprimme(primme->nLocal*blockSize, &V[primme->nLocal*(basisSize-blockSize)], 1, r, 1);
          apply_preconditioner_block(r, x, blockSize, primme );
       }
    }

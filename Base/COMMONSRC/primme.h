@@ -92,7 +92,12 @@ typedef enum {
    primme_adaptive
 } primme_convergencetest;
 
-
+typedef enum {
+   primme_r,
+   primme_x,
+   primme_lastv
+} primme_applyPrecondTo;
+   
 typedef struct stackTraceNode {
    primme_function callingFunction;
    primme_function failedFunction;
@@ -210,6 +215,8 @@ typedef struct primme_params {
    struct correction_params correctionParams;
    struct primme_stats stats;
    struct stackTraceNode *stackTrace;
+
+   primme_applyPrecondTo applyPrecondTo;
    
 } primme_params;
 /*---------------------------------------------------------------------------*/

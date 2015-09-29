@@ -301,6 +301,24 @@ int read_solver_params(char *configFileName, char *outputFileName,
                }
             }
          }
+         else if (strcmp(ident, "primme.applyPrecondTo") == 0) {
+            ret = fscanf(configFile, "%s", stringValue);
+            if (ret == 1) {
+               if (strcmp(stringValue, "primme_r") == 0) {
+                  primme->applyPrecondTo = primme_r;
+               }
+               else if (strcmp(stringValue, "primme_x") == 0) {
+                  primme->applyPrecondTo = primme_x;
+               }
+               else if (strcmp(stringValue, "primme_lastv") == 0) {
+                  primme->applyPrecondTo = primme_lastv;
+               }
+               else {
+                  printf("Invalid applyPrecondTo value\n");
+                  ret = 0;
+               }
+            }
+         }
          else if (strncmp(ident, "primme.", 7) == 0) {
             fprintf(stderr, 
                "ERROR(read_solver_params): Invalid parameter '%s'\n", ident);

@@ -95,6 +95,7 @@ void primme_initialize(primme_params *primme) {
    primme->correctionParams.projectors.SkewX   = 0;
    primme->correctionParams.relTolBase         = 0;
    primme->correctionParams.convTest           = primme_adaptive_ETolerance;
+   primme->applyPrecondTo                      = primme_r;
 
    /* Printing and reporting */
    primme->outputFile              = stdout;
@@ -259,6 +260,7 @@ int primme_set_method(primme_preset_method method, primme_params *params) {
       params->restartingParams.maxPrevRetain      = 0;
       params->correctionParams.precondition       = 0;
       params->correctionParams.maxInnerIterations = 0;
+      params->applyPrecondTo                      = primme_lastv;
    }
    else if (method == GD) {
       params->locking                             = 0;
@@ -474,6 +476,8 @@ int primme_set_method(primme_preset_method method, primme_params *params) {
  *****************************************************************************/
 void primme_display_params(primme_params primme) {
 
+const char *strapplyPrecondTo[] = {"primme_r", "primme_x", "primme_lastv"};
+ 
 int i;
 FILE *outputFile = primme.outputFile;
 
@@ -552,6 +556,8 @@ fprintf(outputFile, "primme.restarting.maxPrevRetain = %d\n",
 fprintf(outputFile, "\n// Correction parameters\n");
 fprintf(outputFile, "primme.correction.precondition = %d\n",
                      primme.correctionParams.precondition);
+fprintf(outputFile, "primme.applyPrecondTo = %s\n",
+                     strapplyPrecondTo[primme.applyPrecondTo]);
 fprintf(outputFile, "primme.correction.robustShifts = %d\n",
                      primme.correctionParams.robustShifts);
 fprintf(outputFile, "primme.correction.maxInnerIterations = %d\n",
