@@ -34,7 +34,9 @@
 #include <assert.h>
 #include "mmio.h"
 #include <petscpc.h>
+#include <petscksp.h>
 #include <petscmat.h>
+#include <petsclog.h>
 #include "primme.h"
 #include "petscw.h"
 
@@ -309,17 +311,22 @@ void PETScMatvec(void *x, void *y, int *blockSize, primme_params *primme) {
 void ApplyPCPrecPETSC(void *x, void *y, int *blockSize, primme_params *primme) {
    int i,bs;
    Mat *matrix;
-   PC *pc;
+   PC pc;
+   PetscBool ispcnone;
    Vec xvec, yvec;
    PetscScalar shift;
    PetscErrorCode ierr;
-   
+   PETScPrecondStruct *s;  
+   PetscEventPerfInfo imat0, imatt0, ipc0, imat1, imatt1, ipc1;
+   PetscLogEvent emat, ematt, epc;
+
    assert(sizeof(PetscScalar) == sizeof(PRIMME_NUM));   
    matrix = (Mat *)primme->matrix;
-   pc = (PC *)primme->preconditioner;
+   s = (PETScPrecondStruct *)primme->preconditioner;
 
    /* Build preconditioner */
    if (primme->rebuildPreconditioner) {
+      Mat A;
       if (primme->numberOfShiftsForPreconditioner == 1) {
          shift = primme->ShiftsForPreconditioner[0];
       #ifdef USE_DOUBLECOMPLEX
@@ -329,12 +336,20 @@ void ApplyPCPrecPETSC(void *x, void *y, int *blockSize, primme_params *primme) {
       } else {
          assert(0);
       }
-      ierr = MatShift(*matrix, -shift); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
-      ierr = PCSetOperators(*pc, *matrix, *matrix); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
-      ierr = PCSetUp(*pc); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
-      ierr = MatShift(*matrix, shift);CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+      ierr = KSPGetOperators(s->ksp, &A, NULL); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+      ierr = MatShift(A, s->prevShift-shift); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+      s->prevShift = s->prevShift - (s->prevShift-shift);
+      ierr = KSPSetOperators(s->ksp, A, A); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+      ierr = KSPSetUp(s->ksp); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
       primme->rebuildPreconditioner = 0;
    }
+
+   ierr = PetscLogEventGetId("MatMult", &emat); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+   ierr = PetscLogEventGetId("MatMultTranspose", &ematt); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+   ierr = PetscLogEventGetId("PCApply", &epc); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+   ierr = PetscLogEventGetPerfInfo(PETSC_DETERMINE, emat, &imat0); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+   ierr = PetscLogEventGetPerfInfo(PETSC_DETERMINE, ematt, &imatt0); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+   ierr = PetscLogEventGetPerfInfo(PETSC_DETERMINE, epc, &ipc0); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
 
    #if PETSC_VERSION_LT(3,6,0)
    ierr = MatGetVecs(*matrix, &xvec, &yvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
@@ -344,12 +359,20 @@ void ApplyPCPrecPETSC(void *x, void *y, int *blockSize, primme_params *primme) {
    for (i=0,bs=blockSize?*blockSize:0; i<bs; i++) {
       ierr = VecPlaceArray(xvec, ((PetscScalar*)x) + primme->nLocal*i); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
       ierr = VecPlaceArray(yvec, ((PetscScalar*)y) + primme->nLocal*i); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
-      ierr = PCApply(*pc, xvec, yvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+      ierr = KSPSolve(s->ksp, xvec, yvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
       ierr = VecResetArray(xvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
       ierr = VecResetArray(yvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
    }
    ierr = VecDestroy(&xvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
    ierr = VecDestroy(&yvec); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+
+   ierr = PetscLogEventGetPerfInfo(PETSC_DETERMINE, emat, &imat1); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+   ierr = PetscLogEventGetPerfInfo(PETSC_DETERMINE, ematt, &imatt1); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+   ierr = PetscLogEventGetPerfInfo(PETSC_DETERMINE, epc, &ipc1); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+   ierr = KSPGetPC(s->ksp, &pc); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+   ierr = PetscObjectTypeCompare((PetscObject)pc, PCNONE, &ispcnone); CHKERRABORT(*(MPI_Comm*)primme->commInfo, ierr);
+   primme->stats.numMatvecs += (imat1.count - imat0.count) + (imatt1.count - imatt0.count);
+   if (!ispcnone) primme->stats.numPreconds += ipc1.count - ipc0.count;
 }
 
 void ApplyInvDavidsonDiagPrecPETSc(void *x, void *y, int *blockSize, 

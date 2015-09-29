@@ -29,6 +29,7 @@
 #ifndef PETSCW_H
 
 #include <petscpc.h>
+#include <petscksp.h>
 #include <petscmat.h>
 #include "primme.h"
 #include "num.h"
@@ -39,7 +40,8 @@ void PETScMatvec(void *x, void *y, int *blockSize, primme_params *primme);
 void ApplyPCPrecPETSC(void *x, void *y, int *blockSize, primme_params *primme);
 void ApplyInvDavidsonDiagPrecPETSc(void *x, void *y, int *blockSize, 
                                         primme_params *primme);
- 
+typedef struct {KSP ksp; PRIMME_NUM prevShift;} PETScPrecondStruct; 
+
 #define PETSCW_H
 #endif
 

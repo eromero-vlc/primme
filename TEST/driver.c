@@ -107,6 +107,7 @@ int main (int argc, char *argv[]) {
    MPI_Init(&argc, &argv);
 #elif defined(USE_PETSC)
    PetscInitialize(&argc, &argv, NULL, NULL);
+   ierr = PetscLogBegin(); CHKERRQ(ierr);
 #endif
 
    ret = real_main(argc, argv);
@@ -389,7 +390,12 @@ static int real_main (int argc, char *argv[]) {
       fprintf(primme->outputFile, "Restarts  : %-d\n", primme->stats.numRestarts);
       fprintf(primme->outputFile, "Matvecs   : %-d\n", primme->stats.numMatvecs);
       fprintf(primme->outputFile, "Preconds  : %-d\n", primme->stats.numPreconds);
-      if (primme->locking && primme->intWork && primme->intWork[0] == 1) {
+      fprintf(primme->outputFile, "Reortho   : %-d\n", primme->stats.numReorthos);
+      fprintf(primme->outputFile, "OrthoTime : %g\n", primme->stats.elapsedTimeOrtho);
+      fprintf(primme->outputFile, "A MV Time : %g\n", elapsedTimeAMV);
+      fprintf(primme->outputFile, "Filt Time : %g\n", elapsedTimeFilterMV);
+      fprintf(primme->outputFile, "Filter app: %-d\n", numFilterApplies);
+       if (primme->locking && primme->intWork && primme->intWork[0] == 1) {
          fprintf(primme->outputFile, "\nA locking problem has occurred.\n");
          fprintf(primme->outputFile,
             "Some eigenpairs do not have a residual norm less than the tolerance.\n");
@@ -627,10 +633,11 @@ static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int
 #else
       {
          PetscErrorCode ierr;
-         Mat *matrix;
-         PC *pc;
+         Mat *matrix,A;
          Vec *vec;
          int m, mLocal;
+         PETScPrecondStruct *s;
+         PC pc;
          if (readMatrixPetsc(driver->matrixFileName, &primme->n, &m, &primme->nLocal, &mLocal,
                          &primme->numProcs, &primme->procID, &matrix, &primme->aNorm, permutation) != 0)
             return -1;
@@ -642,27 +649,31 @@ static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int
             primme->applyPreconditioner = NULL;
          }
          else if (driver->PrecChoice != driver_jacobi_i) {
-            pc = (PC *)primme_calloc(1, sizeof(PC), "pc");
-            ierr = PCCreate(PETSC_COMM_WORLD, pc); CHKERRQ(ierr);
+            s = (PETScPrecondStruct *)primme_calloc(1, sizeof(PETScPrecondStruct), "PETScPrecondStruct");
+            s->prevShift = 0;
+            ierr = KSPCreate(PETSC_COMM_WORLD, &s->ksp); CHKERRQ(ierr);
+            ierr = KSPSetType(s->ksp, KSPPREONLY); CHKERRQ(ierr);
+            ierr = KSPGetPC(s->ksp,&pc); CHKERRQ(ierr);
             if (driver->PrecChoice == driver_jacobi) {
-               ierr = PCSetType(*pc, PCJACOBI); CHKERRQ(ierr);
+               ierr = PCSetType(pc, PCJACOBI); CHKERRQ(ierr);
             }
             else if (driver->PrecChoice == driver_ilut) {
                if (primme->numProcs <= 1) {
-                  ierr = PCSetType(*pc, PCILU); CHKERRQ(ierr);
+                  ierr = PCSetType(pc, PCILU); CHKERRQ(ierr);
                }
                else {
                   #ifndef USE_DOUBLECOMPLEX
-                     ierr = PCSetType(*pc, PCHYPRE); CHKERRQ(ierr);
-                     ierr = PCHYPRESetType(*pc, "parasails"); CHKERRQ(ierr);
+                     ierr = PCSetType(pc, PCHYPRE); CHKERRQ(ierr);
+                     ierr = PCHYPRESetType(pc, "parasails"); CHKERRQ(ierr);
                   #else
-                     ierr = PCSetType(*pc, PCBJACOBI); CHKERRQ(ierr);
+                     ierr = PCSetType(pc, PCBJACOBI); CHKERRQ(ierr);
                   #endif
                }
             }
-            ierr = PCSetOperators(*pc, *matrix, *matrix); CHKERRQ(ierr);
-            ierr = PCSetFromOptions(*pc); CHKERRQ(ierr);
-            primme->preconditioner = pc;
+            ierr = MatDuplicate(*matrix, MAT_COPY_VALUES, &A);CHKERRQ(ierr);
+            ierr = KSPSetOperators(s->ksp, A, A); CHKERRQ(ierr);
+            ierr = KSPSetFromOptions(s->ksp); CHKERRQ(ierr);
+            primme->preconditioner = s;
             primme->applyPreconditioner = ApplyPCPrecPETSC;
          }
          else {
@@ -1023,7 +1034,8 @@ static void Apply_A_filter(void *x, void *y, int *blockSize,
 
    driver_params *driver = (driver_params*)primme;
    Apply_filter(x, y, blockSize, &driver->AFilter, primme, 1);
-   if (primme->printLevel >= 5) plot_filter(1000, &driver->AFilter, primme, stderr);
+   if (primme->printLevel >= 5 && blockSize) plot_filter(1000, &driver->AFilter, primme, stderr);
+   primme->stats.numMatvecs--;
 
 }
 
@@ -1032,7 +1044,8 @@ static void Apply_precon_filter(void *x, void *y, int *blockSize,
 
    driver_params *driver = (driver_params*)primme;
    Apply_filter(x, y, blockSize, &driver->precFilter, primme, 1);
-   if (primme->printLevel >= 5) plot_filter(1000, &driver->precFilter, primme, stderr);
+   if (primme->printLevel >= 5 && blockSize) plot_filter(1000, &driver->precFilter, primme, stderr);
+   primme->stats.numPreconds--;
 
 }
 
@@ -1041,7 +1054,7 @@ static void Apply_ortho_filter(void *x, void *y, int *blockSize,
 
    driver_params *driver = (driver_params*)primme;
    Apply_filter(x, y, blockSize, &driver->orthoFilter, primme, 1);
-   if (primme->printLevel >= 5) plot_filter(1000, &driver->orthoFilter, primme, stderr);
+   if (primme->printLevel >= 5 && blockSize) plot_filter(1000, &driver->orthoFilter, primme, stderr);
 
 }
 
@@ -1065,5 +1078,7 @@ static void setFilters(driver_params *driver, primme_params *primme) {
       primme->applyPreconditioner = Apply_precon_filter;
       driver->precFilter.prodIfFullRange = 1;
    }
+   elapsedTimeAMV = elapsedTimeFilterMV = 0;
+   numFilterApplies = 0;
 
 }

@@ -162,8 +162,14 @@ static void getBounds(filter_params *filter, primme_params *primme,
          fprintf(stderr, "ERROR(getBounds): Invalid lowerBound '%d'\n", filter->lowerBound);
          return;
       }
+      if (filter->lowerBoundFix != filter->upperBoundFix && min(max(*lb, filter->lowerBoundFix), filter->upperBoundFix) != *lb) {
+         if (primme->outputFile)
+            fprintf(primme->outputFile, "warning(getBounds): lowerBound(%d)=%g out of fix limits! Fixed!\n", filter->lowerBound, *lb);
+         *lb = min(max(*lb, filter->lowerBoundFix), filter->upperBoundFix);
+      }
       if (min(max(*lb, filter->minEig), filter->maxEig) != *lb) {
-         fprintf(primme->outputFile, "warning(getBounds): lowerBound(%d)=%g out of limits! Fixed!\n", filter->lowerBound, *lb);
+         if (primme->outputFile)
+            fprintf(primme->outputFile, "warning(getBounds): lowerBound(%d)=%g out of limits! Fixed!\n", filter->lowerBound, *lb);
          *lb = min(max(*lb, filter->minEig), filter->maxEig);
       }
    }
@@ -179,12 +185,18 @@ static void getBounds(filter_params *filter, primme_params *primme,
          fprintf(stderr, "ERROR(getBounds): Invalid upperBound '%d'\n", filter->upperBound);
          return;
       }
-      if (min(max(*ub, filter->minEig), filter->maxEig) != *ub) {
-         fprintf(primme->outputFile, "warning(getBounds): upperBound(%d)=%g out of limits! Fixed!\n", filter->upperBound, *ub);
+      if (filter->lowerBoundFix != filter->upperBoundFix && min(max(*ub, filter->lowerBoundFix), filter->upperBoundFix) != *ub) {
+         if (primme->outputFile)
+            fprintf(primme->outputFile, "warning(getBounds): upperBound(%d)=%g out of fix limits! Fixed!\n", filter->upperBound, *ub);
+         *ub = min(max(*ub, filter->lowerBoundFix), filter->upperBoundFix);
+      }
+       if (min(max(*ub, filter->minEig), filter->maxEig) != *ub) {
+         if (primme->outputFile)
+            fprintf(primme->outputFile, "warning(getBounds): upperBound(%d)=%g out of limits! Fixed!\n", filter->upperBound, *ub);
          *ub = min(max(*ub, filter->minEig), filter->maxEig);
       }
    }
-   if (primme->printLevel > 3) {
+   if (primme->printLevel > 3 && primme->outputFile) {
       fprintf(primme->outputFile, "filter: %d lb:%g ub:%g\n", filter->filter, *lb, *ub);
    }
 }
@@ -755,16 +767,6 @@ static void primme_spmv(double *xvec, double *yvec, void *ctxt) {
 /******************************************************************************
  * Use FEAST single iteration as a filter
  *
- * INPUT
- * -----
- *    m        #degrees of the expansion 
- *    a,b      [a,b] interval where function is ~0
- *    a0       min eig of A
- *    damping  0: no damping; 1: Jackson; 2: Lanczos sigma damping
- *
- * OUTPUT
- * ------
- *    mu,      (m+1)-vector with the expansion coefficients
 ******************************************************************************/
 extern void zfeast_hrci_(int*,int*,PRIMME_NUM*,PRIMME_NUM*,PRIMME_NUM*,PRIMME_NUM*,PRIMME_NUM*,int*,double*,int*,double*,double*,int*,double*,PRIMME_NUM*,int*,double*,int*);
 extern void feastinit_(int*);
@@ -779,6 +781,10 @@ static void Apply_filter_feast(void *x, void *y, int *blockSize, filter_params *
    int  fpm[64],ijob,info,ncv,loop,nconv;
    double epsout;
    complex double Ze,shifts,*work1,*work2,*aux;
+   double t0;
+
+   double complex *Aq, *Bq;
+   double *rnorms, *evals;
    
    if (!blockSize) return;
    getBounds(filter, primme, &lowerBound, &upperBound);
@@ -787,17 +793,32 @@ static void Apply_filter_feast(void *x, void *y, int *blockSize, filter_params *
    work2 = (PRIMME_NUM *)primme_calloc(primme->n*ncv, sizeof(PRIMME_NUM), "work2");
    aux = (PRIMME_NUM *)primme_calloc(primme->n*ncv, sizeof(PRIMME_NUM), "aux");
 
+#ifdef FEAST_SOLVER
+   Aq =       (PRIMME_NUM *)primme_calloc(ncv*ncv, sizeof(PRIMME_NUM), "work2");
+   Bq =       (PRIMME_NUM *)primme_calloc(ncv*ncv, sizeof(PRIMME_NUM), "work2");
+   evals =    (double *)primme_calloc(ncv, sizeof(double), "work2");
+   rnorms =   (double *)primme_calloc(ncv, sizeof(double), "work2");
+#else
+   Aq =       NULL;
+   Bq =       NULL;
+   evals =    NULL;
+   rnorms =   NULL;
+#endif
+
    /* parameters */
    feastinit_(fpm);
    fpm[0] = (primme->printLevel>3)? 1: 0;                      /* runtime comments */
    fpm[7] = filter->degrees;                                   /* contour points */
+#ifndef FEAST_SOLVER
    fpm[13] = 1;                     /* single iteration */
    fpm[4] = 1;                      /* provide initial guess */
-  
+#endif
+
+   t0 = primme_get_wtime();
    for (i=0;i<ncv*primme->n;i++) yvec[i] = xvec[i];
    ijob = -1;           /* first call to reverse communication interface */
    do {
-      zfeast_hrci_(&ijob, &primme->n, &Ze, work1, work2, NULL, NULL, fpm, &epsout, &loop, &lowerBound, &upperBound, &ncv, NULL, y, &nconv, NULL, &info);
+      zfeast_hrci_(&ijob, &primme->n, &Ze, work1, work2, Aq, Bq, fpm, &epsout, &loop, &lowerBound, &upperBound, &ncv, evals, y, &nconv, rnorms, &info);
       if (ijob == 10) {
          /* set new quadrature point */
          shifts = Ze;
@@ -813,8 +834,10 @@ static void Apply_filter_feast(void *x, void *y, int *blockSize, filter_params *
          filter->precond(work2, aux, &fpm[22], primme);
          for (i=0;i<fpm[22]*primme->n;i++) work2[i] = -aux[i];
          primme->ShiftsForPreconditioner = oldShiftsForPreconditioner;
+         if (stats) primme->stats.numPreconds += fpm[22];
       } else if (ijob == 30) {
          filter->matvec(&yvec[(fpm[23]-1)*primme->n], &work1[(fpm[23]-1)*primme->n], &fpm[24], primme);
+         if (stats) primme->stats.numMatvecs += fpm[24];
       } else if (ijob == 40) {
          for (i=0;i<fpm[24]*primme->n;i++) work1[(fpm[23]-1)*primme->n+i] = yvec[(fpm[23]-1)*primme->n+i];
       } else if (ijob != -2 && ijob != 0) {
@@ -822,12 +845,22 @@ static void Apply_filter_feast(void *x, void *y, int *blockSize, filter_params *
          return;
       }
    } while (ijob != 0 && info == 0);
-   assert(info == 4);
+   if (stats) elapsedTimeFilterMV += primme_get_wtime() - t0;
+   assert(info == 4 || info == 0 || info == 3);
    free(work1);
    free(work2);
    free(aux);
-}
+
+#ifdef FEAST_SOLVER
+   free(Aq);
+   free(Bq);
+   free(rnorms);
+   free(evals);
 #endif
+
+   if (stats) numFilterApplies += *blockSize;
+}
+#endif /* USE_FEAST */
 
 void plot_filter(int n, filter_params *filter, primme_params *primme, FILE *out) {
    int i;
