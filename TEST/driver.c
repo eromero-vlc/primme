@@ -1035,7 +1035,7 @@ static void Apply_A_filter(void *x, void *y, int *blockSize,
    driver_params *driver = (driver_params*)primme;
    Apply_filter(x, y, blockSize, &driver->AFilter, primme, 1);
    if (primme->printLevel >= 5 && blockSize) plot_filter(1000, &driver->AFilter, primme, stderr);
-   primme->stats.numMatvecs--;
+   if (blockSize) primme->stats.numMatvecs -= *blockSize;
 
 }
 
@@ -1045,7 +1045,7 @@ static void Apply_precon_filter(void *x, void *y, int *blockSize,
    driver_params *driver = (driver_params*)primme;
    Apply_filter(x, y, blockSize, &driver->precFilter, primme, 1);
    if (primme->printLevel >= 5 && blockSize) plot_filter(1000, &driver->precFilter, primme, stderr);
-   primme->stats.numPreconds--;
+   if (blockSize) primme->stats.numPreconds -= *blockSize;
 
 }
 
