@@ -579,14 +579,28 @@ static void computeRitzValsForPreconditioner(int blockSize, double *blockNorms,
    primme_params *primme) {
 
    double *ritzs;
+   int i;
 
    ritzs = primme->RitzValuesForPreconditioner;
    ritzs[0] = numLocked>0 ? sortedRitzVals[numLocked-1] : -HUGE_VAL;
    ritzs[1] = ilev[0]>0 ? sortedRitzVals[ilev[0]-1] : -HUGE_VAL;
-   ritzs[2] = sortedRitzVals[ilev[0]];
-   ritzs[3] = sortedRitzVals[ilev[0]] - blockNorms[0];
-   ritzs[4] = sortedRitzVals[ilev[blockSize-1]];
-   ritzs[5] = sortedRitzVals[ilev[blockSize-1]] + blockNorms[blockSize-1];
+
+   ritzs[2] = HUGE_VAL;
+   ritzs[3] = HUGE_VAL;
+   ritzs[4] = -HUGE_VAL;
+   ritzs[5] = -HUGE_VAL;
+
+   for (i=0; i<blockSize; i++) {
+      ritzs[2] = min(ritzs[2], sortedRitzVals[ilev[i]]);
+      ritzs[4] = max(ritzs[4], sortedRitzVals[ilev[i]]);
+   }
+   for (i=0; i<blockSize; i++) {
+      if (ritzs[2] == sortedRitzVals[ilev[i]])
+         ritzs[3] = min(ritzs[3], sortedRitzVals[ilev[i]] - blockNorms[i]);
+      if (ritzs[4] == sortedRitzVals[ilev[i]])
+         ritzs[5] = max(ritzs[5], sortedRitzVals[ilev[i]] + blockNorms[i]);
+   }
+
    ritzs[6] = sortedRitzVals[(numSorted-ilev[blockSize-1])/2+ilev[blockSize-1]];
 }
 
