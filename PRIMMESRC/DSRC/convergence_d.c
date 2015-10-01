@@ -83,7 +83,7 @@ int check_convergence_dprimme(double *V, double *W, double *hVecs,
    int recentlyConverged; /* The number of Ritz values declared converged     */
                           /* since the last iteration                         */
    int numToProject;      /* Number of vectors with potential accuracy problem*/
-   double attainableTol;  /* Used in locking to check near convergence problem*/
+   double attainableTol=0;/* Used in locking to check near convergence problem*/
 
    /* -------------------------------------------- */
    /* Tolerance based on our dynamic norm estimate */
@@ -98,7 +98,6 @@ int check_convergence_dprimme(double *V, double *W, double *hVecs,
    /* ---------------------------------------------------------------------- */
    if (primme->locking) {
       attainableTol = sqrt(primme->numOrthoConst+numLocked)*maxConvTol;
-      //attainableTol = maxConvTol;
    }   
 
       

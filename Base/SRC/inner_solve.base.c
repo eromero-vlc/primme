@@ -536,10 +536,13 @@ static int apply_projected_preconditioner(@(type) *v, @(type) *Q,
 
    int ONE = 1;
    int ret;
+   double t0;           /* Time */
 
    if (primme->correctionParams.precondition) {
       /* Place K^{-1}v in result */
+      t0 = primme_wTimer(0);
       (*primme->applyPreconditioner)(v, result, &ONE, primme);
+      primme->stats.elapsedTimePrecond += primme_wTimer(0) - t0;
       primme->stats.numPreconds += 1;
    }
    else {
@@ -720,13 +723,16 @@ static int apply_skew_projector(@(type) *Q, @(type) *Qhat, @(type) *UDU,
 
 static void apply_projected_matrix(@(type) *v, double shift, @(type) *Q, 
    int dimQ, @(type) *result, @(type) *rwork, primme_params *primme) {
+   double t0;           /* Time */
    
    int ONE = 1;   /* For passing it by reference in matrixMatvec */
 #ifdefarithm L_DEFCPLX
    @(type) ztmp; 
 #endifarithm
 
+   t0 = primme_wTimer(0);
    (*primme->matrixMatvec)(v, result, &ONE, primme);
+   primme->stats.elapsedTimeMatvec += primme_wTimer(0) - t0;
 #ifdefarithm L_DEFCPLX
    {ztmp.r = -shift; ztmp.i = 0.0L;}
    Num_axpy_zprimme(primme->nLocal, ztmp, v, 1, result, 1); 

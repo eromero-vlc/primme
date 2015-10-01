@@ -127,8 +127,8 @@ int ortho_@(pre)primme(@(type) *basis, int ldBasis, int b1, int b2,
    @(type) ztmp;
    @(type) *overlaps;
    @(type) tpone = @(tpone), tzero = @(tzero), tmone = @(tmone);
-   double t0;
    FILE *outputFile;
+   double t0;
 
    /* messages = (primme->procID == 0 && primme->printLevel >= 5); */
    /* outputFile = primme->outputFile; */
@@ -164,7 +164,7 @@ int ortho_@(pre)primme(@(type) *basis, int ldBasis, int b1, int b2,
    /* main loop to orthogonalize new vectors one by one */
    /*---------------------------------------------------*/
 
-   t0 = primme_get_wtime();
+   t0 = primme_wTimer(0);
    for(i=b1; i <= b2; i++) {
     
       nOrth = 0;
@@ -303,8 +303,8 @@ int ortho_@(pre)primme(@(type) *basis, int ldBasis, int b1, int b2,
       }
       primme->stats.numColumnsOrtho += i + numLocked;
    }
-   primme->stats.elapsedTimeOrtho += primme_get_wtime() - t0;
-         
+   primme->stats.elapsedTimeOrtho += primme_wTimer(0) - t0;
+ 
    return 0;
 }
 

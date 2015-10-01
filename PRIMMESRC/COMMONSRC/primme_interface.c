@@ -55,7 +55,8 @@ void primme_initialize(primme_params *primme) {
    /* Matvec and preconditioner */
    primme->matrixMatvec            = NULL;
    primme->applyPreconditioner     = NULL;
-   primme->massMatrixMatvec        = NULL;
+   primme->applyPreconditioner     = NULL;
+   primme->applyOrtho              = NULL;
 
    /* Shifts for interior eigenvalues*/
    primme->numTargetShifts         = 0;
@@ -103,10 +104,13 @@ void primme_initialize(primme_params *primme) {
    primme->stats.numOuterIterations= 0;
    primme->stats.numRestarts       = 0;
    primme->stats.numMatvecs        = 0;
+   primme->stats.elapsedTimeMatvec = 0.0L;
    primme->stats.numPreconds       = 0;
+   primme->stats.elapsedTimePrecond = 0.0L;
    primme->stats.elapsedTime       = 0.0L;
    primme->stats.elapsedTimeOrtho  = 0.0L;
    primme->stats.numReorthos       = 0;
+   primme->stats.elapsedTimeSolveH = 0.0L;
 
    /* Optional user defined structures */
    primme->matrix                  = NULL;

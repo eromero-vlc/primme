@@ -34,6 +34,7 @@
 #include "correction_private_z.h"
 #include "inner_solve_z.h"
 #include "numerical_z.h"
+#include "wtime.h"
 
 /*******************************************************************************
  * Subroutine solve_correction - This routine solves the correction equation
@@ -719,9 +720,13 @@ static void mergeSort(double *lockedEvals, int numLocked, double *ritzVals,
 static void apply_preconditioner_block(Complex_Z *v, Complex_Z *result, 
                 int blockSize, primme_params *primme) {
          
+   double t0;           /* Time */
+
    if (primme->correctionParams.precondition) {
 
+      t0 = primme_wTimer(0);
       (*primme->applyPreconditioner)(v, result, &blockSize, primme);
+      primme->stats.elapsedTimePrecond += primme_wTimer(0) - t0;
       primme->stats.numPreconds += blockSize;
    }
    else {
@@ -906,6 +911,7 @@ static void setup_JD_projectors(Complex_Z *x, Complex_Z *r, Complex_Z *evecs,
    int count = 2;
    Complex_Z xKinvx_local;
    Complex_Z tpone = {+1.0e+00,+0.0e00};
+   double t0;           /* Time */
 
    *sizeLprojector  = 0;
    *sizeRprojectorQ = 0;
@@ -972,7 +978,9 @@ static void setup_JD_projectors(Complex_Z *x, Complex_Z *r, Complex_Z *evecs,
    
       if (primme->correctionParams.precondition   &&
           primme->correctionParams.projectors.SkewX) {
+         t0 = primme_wTimer(0);
          (*primme->applyPreconditioner)(x, Kinvx, &ONE, primme);
+         primme->stats.elapsedTimePrecond += primme_wTimer(0) - t0;
          primme->stats.numPreconds += 1;
          *RprojectorX  = Kinvx;
          xKinvx_local = Num_dot_zprimme(primme->nLocal, x, 1, Kinvx, 1);

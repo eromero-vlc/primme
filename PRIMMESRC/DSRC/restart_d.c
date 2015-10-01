@@ -37,6 +37,7 @@
 #include "factorize_d.h"
 #include "update_projection_d.h"
 #include "numerical_d.h"
+#include "wtime.h"
 
 
 /*******************************************************************************
@@ -1084,10 +1085,13 @@ void reset_flags_dprimme(int *flag, int first, int last) {
 
 static void apply_preconditioner_block(double *v, double *result, 
                 int blockSize, primme_params *primme) {
+   double t0;           /* Time */
          
    if (primme->correctionParams.precondition) {
 
+      t0 = primme_wTimer(0);
       (*primme->applyPreconditioner)(v, result, &blockSize, primme);
+      primme->stats.elapsedTimePrecond += primme_wTimer(0) - t0;
       primme->stats.numPreconds += blockSize;
    }
    else {

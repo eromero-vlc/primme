@@ -83,7 +83,7 @@ int check_convergence_zprimme(Complex_Z *V, Complex_Z *W, Complex_Z *hVecs,
    int recentlyConverged; /* The number of Ritz values declared converged     */
                           /* since the last iteration                         */
    int numToProject;      /* Number of vectors with potential accuracy problem*/
-   double attainableTol=0;  /* Used in locking to check near convergence problem*/
+   double attainableTol=0;/* Used in locking to check near convergence problem*/
 
    /* -------------------------------------------- */
    /* Tolerance based on our dynamic norm estimate */

@@ -34,6 +34,7 @@
 #include "correction_private_d.h"
 #include "inner_solve_d.h"
 #include "numerical_d.h"
+#include "wtime.h"
 
 /*******************************************************************************
  * Subroutine solve_correction - This routine solves the correction equation
@@ -719,9 +720,13 @@ static void mergeSort(double *lockedEvals, int numLocked, double *ritzVals,
 static void apply_preconditioner_block(double *v, double *result, 
                 int blockSize, primme_params *primme) {
          
+   double t0;           /* Time */
+
    if (primme->correctionParams.precondition) {
 
+      t0 = primme_wTimer(0);
       (*primme->applyPreconditioner)(v, result, &blockSize, primme);
+      primme->stats.elapsedTimePrecond += primme_wTimer(0) - t0;
       primme->stats.numPreconds += blockSize;
    }
    else {
@@ -900,6 +905,7 @@ static void setup_JD_projectors(double *x, double *r, double *evecs,
    int count = 1;
    double xKinvx_local;
    double tpone = +1.0e+00;
+   double t0;           /* Time */
 
    *sizeLprojector  = 0;
    *sizeRprojectorQ = 0;
@@ -966,7 +972,9 @@ static void setup_JD_projectors(double *x, double *r, double *evecs,
    
       if (primme->correctionParams.precondition   &&
           primme->correctionParams.projectors.SkewX) {
+         t0 = primme_wTimer(0);
          (*primme->applyPreconditioner)(x, Kinvx, &ONE, primme);
+         primme->stats.elapsedTimePrecond += primme_wTimer(0) - t0;
          primme->stats.numPreconds += 1;
          *RprojectorX  = Kinvx;
          xKinvx_local = Num_dot_dprimme(primme->nLocal, x, 1, Kinvx, 1);

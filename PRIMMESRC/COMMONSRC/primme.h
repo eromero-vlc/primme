@@ -112,6 +112,7 @@ typedef struct primme_stats {
    int numOuterIterations;
    int numRestarts;
    int numMatvecs;
+   double elapsedTimeMatvec;
    int numPreconds;
    double elapsedTime;
    int numReorthos; 
@@ -120,6 +121,8 @@ typedef struct primme_stats {
    int currentEigFirstIteration;
    double currentEigFirstResidual;
    double currentEigResidual;
+   double elapsedTimePrecond;
+   double elapsedTimeSolveH;
 } primme_stats;
    
 typedef struct JD_projectors {
