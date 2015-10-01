@@ -338,13 +338,18 @@ static int real_main (int argc, char *argv[]) {
       }
       fprintf(primme.outputFile, " %d eigenpairs converged\n", primme.initSize);
 
-      fprintf(primme.outputFile, "Tolerance : %-22.15E\n", 
+      fprintf(primme.outputFile, "Tolerance    : %-22.15E\n", 
                                                             primme.aNorm*primme.eps);
-      fprintf(primme.outputFile, "Iterations: %-d\n", 
+      fprintf(primme.outputFile, "Iterations   : %-d\n", 
                                                     primme.stats.numOuterIterations); 
-      fprintf(primme.outputFile, "Restarts  : %-d\n", primme.stats.numRestarts);
-      fprintf(primme.outputFile, "Matvecs   : %-d\n", primme.stats.numMatvecs);
-      fprintf(primme.outputFile, "Preconds  : %-d\n", primme.stats.numPreconds);
+      fprintf(primme.outputFile, "Restarts     : %-d\n", primme.stats.numRestarts);
+      fprintf(primme.outputFile, "Matvecs      : %-d\n", primme.stats.numMatvecs);
+      fprintf(primme.outputFile, "Matvecs Time : %g\n",  primme.stats.elapsedTimeMatvec);
+      fprintf(primme.outputFile, "Preconds     : %-d\n", primme.stats.numPreconds);
+      fprintf(primme.outputFile, "Precond Time : %g\n",  primme.stats.elapsedTimePrecond);
+      fprintf(primme.outputFile, "Reortho      : %-d\n", primme.stats.numReorthos);
+      fprintf(primme.outputFile, "Ortho Time   : %g\n",  primme.stats.elapsedTimeOrtho);
+      fprintf(primme.outputFile, "Solve H Time : %g\n",  primme.stats.elapsedTimeSolveH);
       if (primme.locking && primme.intWork && primme.intWork[0] == 1) {
          fprintf(primme.outputFile, "\nA locking problem has occurred.\n");
          fprintf(primme.outputFile,

@@ -31,6 +31,7 @@
 #include "solve_H_d.h"
 #include "solve_H_private_d.h"
 #include "numerical_d.h"
+#include "wtime.h"
 
 /*******************************************************************************
  * Subroutine solve_H - This procedure solves the eigenproblem for the
@@ -70,6 +71,7 @@ int solve_H_dprimme(double *H, double *hVecs, double *hVals,
    int *permu, *permw;
    double targetShift;
 
+   double t0;
 
    /* ---------------------- */
    /* Divide the iwork space */
@@ -81,6 +83,7 @@ int solve_H_dprimme(double *H, double *hVecs, double *hVals,
    int apSize, idx;
 #endif
 
+   t0 = primme_wTimer(0);
 
    /* ------------------------------------------------------------------- */
    /* Copy the upper triangular portion of H into hvecs.  We need to do   */
@@ -159,8 +162,10 @@ int solve_H_dprimme(double *H, double *hVecs, double *hVals,
    /* target:  smallest/Largest or interior closest abs/leq/geq to a shift   */
    /* ---------------------------------------------------------------------- */
 
-   if (primme->target == primme_smallest) 
+   if (primme->target == primme_smallest) {
+      primme->stats.elapsedTimeSolveH += primme_wTimer(0) - t0;
       return 0;
+   }
 
    if (primme->target == primme_largest) {
       for (i = 0; i < basisSize; i++) {
@@ -249,6 +254,7 @@ int solve_H_dprimme(double *H, double *hVecs, double *hVals,
    }
 
 
+   primme->stats.elapsedTimeSolveH += primme_wTimer(0) - t0;
    return 0;   
 }
 

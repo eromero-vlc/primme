@@ -55,6 +55,7 @@
 #include "primme.h"         
 #include "numerical_@(pre).h"
 #include "ortho_@(pre).h"
+#include "wtime.h"
  
 
 /**********************************************************************
@@ -121,6 +122,7 @@ int ortho_@(pre)primme(@(type) *basis, int ldBasis, int b1, int b2,
    @(type) *overlaps;
    @(type) tpone = @(tpone), tzero = @(tzero), tmone = @(tmone);
    FILE *outputFile;
+   double t0;
 
    /* messages = (primme->procID == 0 && primme->printLevel >= 5); */
    /* outputFile = primme->outputFile; */
@@ -156,6 +158,7 @@ int ortho_@(pre)primme(@(type) *basis, int ldBasis, int b1, int b2,
    /* main loop to orthogonalize new vectors one by one */
    /*---------------------------------------------------*/
 
+   t0 = primme_wTimer(0);
    for(i=b1; i <= b2; i++) {
     
       nOrth = 0;
@@ -182,7 +185,8 @@ int ortho_@(pre)primme(@(type) *basis, int ldBasis, int b1, int b2,
          if (nOrth == 1) {
             ztmp = Num_dot_@(pre)primme(nLocal, &basis[ldBasis*i], 1, 
                                            &basis[ldBasis*i], 1);
-         }
+         } else
+            primme->stats.numReorthos++;
             
          if (i > 0) {
             Num_gemv_@(pre)primme("C", nLocal, i, tpone, basis, ldBasis, 
@@ -282,7 +286,8 @@ int ortho_@(pre)primme(@(type) *basis, int ldBasis, int b1, int b2,
             
       }
    }
-         
+   primme->stats.elapsedTimeOrtho += primme_wTimer(0) - t0;
+ 
    return 0;
 }
 

@@ -29,6 +29,7 @@
 
 #include "primme.h"
 #include "update_W_d.h"
+#include "wtime.h"
 
 
 /*******************************************************************************
@@ -49,8 +50,12 @@
 void update_W_dprimme(double *V, double *W, int basisSize, int blockSize,
    primme_params *primme) {
 
+   double t0;           /* Time */
+
+   t0 = primme_wTimer(0);
    (*primme->matrixMatvec)(&V[primme->nLocal*basisSize],
                          &W[primme->nLocal*basisSize], &blockSize, primme);
+   primme->stats.elapsedTimeMatvec += primme_wTimer(0) - t0;
 
    primme->stats.numMatvecs += blockSize;
 

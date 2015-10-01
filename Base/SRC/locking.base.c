@@ -183,6 +183,7 @@ int lock_vectors_@(pre)primme(double tol, double *aNormEstimate, double *maxConv
    double attainableTol;   /* Used to verify a practical convergence problem*/
    @(type) *residual;  /* Stores residual vector                             */
    @(type) ztmp;       /* temp variable */
+   double t0;           /* Time */
 
    /* ----------------------------------------*/
    /* Assign temporary work space for residual*/
@@ -354,8 +355,10 @@ int lock_vectors_@(pre)primme(double tol, double *aNormEstimate, double *maxConv
       /* Compute K^{-1}x for all newly locked eigenvectors */
 
       newStart = primme->nLocal*(evecsSize - numRecentlyLocked);
+      t0 = primme_wTimer(0);
       (*primme->applyPreconditioner)( &evecs[newStart], &evecsHat[newStart], 
                                     &numRecentlyLocked, primme);
+      primme->stats.elapsedTimePrecond += primme_wTimer(0) - t0;
       primme->stats.numPreconds += numRecentlyLocked;
 
       /* Update the projection evecs'*evecsHat now that evecs and evecsHat   */

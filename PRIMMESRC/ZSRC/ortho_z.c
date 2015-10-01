@@ -55,6 +55,7 @@
 #include "primme.h"         
 #include "numerical_z.h"
 #include "ortho_z.h"
+#include "wtime.h"
  
 
 /**********************************************************************
@@ -121,6 +122,7 @@ int ortho_zprimme(Complex_Z *basis, int ldBasis, int b1, int b2,
    Complex_Z *overlaps;
    Complex_Z tpone = {+1.0e+00,+0.0e00}, tzero = {+0.0e+00,+0.0e00}, tmone = {-1.0e+00,+0.0e00};
    FILE *outputFile;
+   double t0;
 
    /* messages = (primme->procID == 0 && primme->printLevel >= 5); */
    /* outputFile = primme->outputFile; */
@@ -156,6 +158,7 @@ int ortho_zprimme(Complex_Z *basis, int ldBasis, int b1, int b2,
    /* main loop to orthogonalize new vectors one by one */
    /*---------------------------------------------------*/
 
+   t0 = primme_wTimer(0);
    for(i=b1; i <= b2; i++) {
     
       nOrth = 0;
@@ -182,7 +185,8 @@ int ortho_zprimme(Complex_Z *basis, int ldBasis, int b1, int b2,
          if (nOrth == 1) {
             ztmp = Num_dot_zprimme(nLocal, &basis[ldBasis*i], 1, 
                                            &basis[ldBasis*i], 1);
-         }
+         } else
+            primme->stats.numReorthos++;
             
          if (i > 0) {
             Num_gemv_zprimme("C", nLocal, i, tpone, basis, ldBasis, 
@@ -256,7 +260,8 @@ int ortho_zprimme(Complex_Z *basis, int ldBasis, int b1, int b2,
             
       }
    }
-         
+   primme->stats.elapsedTimeOrtho += primme_wTimer(0) - t0;
+ 
    return 0;
 }
 

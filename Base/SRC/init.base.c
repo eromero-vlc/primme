@@ -135,6 +135,7 @@ int init_basis_@(pre)primme(@(type) *V, @(type) *W, @(type) *evecs,
 
    int ret;          /* Return value                              */
    int currentSize;
+   double t0;           /* Time */
 
    /*-----------------------------------------------------------------------*/
    /* Orthogonalize the orthogonalization constraints provided by the user. */
@@ -162,8 +163,10 @@ int init_basis_@(pre)primme(@(type) *V, @(type) *W, @(type) *evecs,
 
       if (UDU != NULL) {
 
+         t0 = primme_wTimer(0);
          (*primme->applyPreconditioner)
             (evecs, evecsHat, &primme->numOrthoConst, primme); 
+         primme->stats.elapsedTimePrecond += primme_wTimer(0) - t0;
          primme->stats.numPreconds += primme->numOrthoConst;
 
          update_projection_@(pre)primme(evecs, evecsHat, M, 0, 
@@ -369,6 +372,7 @@ static int init_block_krylov(@(type) *V, @(type) *W, int dv1, int dv2,
    int numNewVectors;   /* Number of vectors to be generated */
    int ret;             /* Return code.                      */  
    int ONE = 1;         /* Used for passing it by reference in matrixmatvec */
+   double t0;           /* Time */
    
    numNewVectors = dv2 - dv1 + 1;
 
@@ -396,8 +400,10 @@ static int init_block_krylov(@(type) *V, @(type) *W, int dv1, int dv2,
       /* Generate the remainder of the Krylov space. */
 
       for (i = dv1; i < dv2; i++) {
+         t0 = primme_wTimer(0);
          (*primme->matrixMatvec)
            (&V[primme->nLocal*i], &V[primme->nLocal*(i+1)], &ONE, primme);
+         primme->stats.elapsedTimeMatvec += primme_wTimer(0) - t0;
          Num_@(pre)copy_@(pre)primme(primme->nLocal, &V[primme->nLocal*(i+1)], 1,
             &W[primme->nLocal*i], 1);
          ret = ortho_@(pre)primme(V, primme->nLocal, i+1, i+1, locked, 
@@ -429,8 +435,10 @@ static int init_block_krylov(@(type) *V, @(type) *W, int dv1, int dv2,
       /* Generate the remaining vectors in the sequence */
 
       for (i = dv1+primme->maxBlockSize; i <= dv2; i++) {
+         t0 = primme_wTimer(0);
          (*primme->matrixMatvec)(&V[primme->nLocal*(i-primme->maxBlockSize)], 
             &V[primme->nLocal*i], &ONE, primme);
+         primme->stats.elapsedTimeMatvec += primme_wTimer(0) - t0;
          Num_@(pre)copy_@(pre)primme(primme->nLocal, &V[primme->nLocal*i], 1,
             &W[primme->nLocal*(i-primme->maxBlockSize)], 1);
 

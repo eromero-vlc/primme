@@ -37,6 +37,7 @@
 #include "factorize_z.h"
 #include "update_projection_z.h"
 #include "numerical_z.h"
+#include "wtime.h"
 
 
 /*******************************************************************************
@@ -1092,10 +1093,13 @@ void reset_flags_zprimme(int *flag, int first, int last) {
 
 static void apply_preconditioner_block(Complex_Z *v, Complex_Z *result, 
                 int blockSize, primme_params *primme) {
+   double t0;           /* Time */
          
    if (primme->correctionParams.precondition) {
 
+      t0 = primme_wTimer(0);
       (*primme->applyPreconditioner)(v, result, &blockSize, primme);
+      primme->stats.elapsedTimePrecond += primme_wTimer(0) - t0;
       primme->stats.numPreconds += blockSize;
    }
    else {
