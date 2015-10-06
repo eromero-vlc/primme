@@ -47,6 +47,7 @@ typedef struct filter_params {
 void Apply_filter(void *x, void *y, int *blockSize, filter_params *filter,
                   primme_params *primme, int stats);
 void plot_filter(int n, filter_params *filter, primme_params *primme, FILE *out);
+void Setup_filter_augmented(filter_params *filter, primme_params *primme);
 
 // Please, don't use global variables!
 extern double elapsedTimeAMV, elapsedTimeFilterMV;

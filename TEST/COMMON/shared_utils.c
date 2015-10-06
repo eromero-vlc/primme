@@ -597,7 +597,8 @@ char *helpFilter[] = {"no filter",
                       "Chebyshev delta Jackson damping",
                       "Chebyshev delta sigma-Lanczos damping",
                       "Chebyshev based on (A-shift I)^2",
-                      "FEAST"};
+                      "FEAST",
+                      "Augmented matrix [0 A';A 0]"};
 char *helpBoundFilter[] = {"extreme eigenvalue",
                            "last converged",
                            "last frozen",

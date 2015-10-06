@@ -64,6 +64,8 @@ static void Apply_filter_filtlan(void *x, void *y, int *blockSize, filter_params
 static void Apply_filter_feast(void *x, void *y, int *blockSize, filter_params *filter,
                                primme_params *primme, int stats);
 #endif
+void Apply_filter_augmented(void *x, void *y, int *blockSize, filter_params *filter,
+                            primme_params *primme, int stats);
 
 double elapsedTimeAMV, elapsedTimeFilterMV;
 int numFilterApplies;
@@ -142,6 +144,9 @@ void Apply_filter(void *x, void *y, int *blockSize, filter_params *filter,
          Apply_filter_feast(x, y, blockSize, filter, primme, stats);
          break;
 #endif /* FEAST */
+      case 13:
+         Apply_filter_augmented(x, y, blockSize, filter, primme, stats);
+         break;
        default:
          fprintf(stderr, "ERROR(Apply_filter): Invalid filter '%d'\n", filter->filter);
          return;
@@ -861,6 +866,35 @@ static void Apply_filter_feast(void *x, void *y, int *blockSize, filter_params *
    if (stats) numFilterApplies += *blockSize;
 }
 #endif /* USE_FEAST */
+
+void Setup_filter_augmented(filter_params *filter, primme_params *primme) {
+
+   primme->nLocal *= 2;
+   primme->n *= 2;
+}
+
+
+void Apply_filter_augmented(void *x, void *y, int *blockSize, filter_params *filter,
+                            primme_params *primme, int stats) {
+
+   int j,nLocal=primme->nLocal,n=primme->n,one=1;
+   double lowerBound, upperBound;
+   PRIMME_NUM *xvec, *yvec, *aux;
+
+   xvec = (PRIMME_NUM *)x;
+   yvec = (PRIMME_NUM *)y;
+
+   primme->nLocal = nLocal/2;
+   primme->n = n/2;
+   for (j=0; j<*blockSize; j++) {
+      filter->matvec(&xvec[j*nLocal+nLocal/2], &yvec[j*nLocal], &one, primme);
+      filter->matvec(&xvec[j*nLocal], &yvec[j*nLocal+nLocal/2], &one, primme);
+   }
+   primme->nLocal = nLocal;
+   primme->n = n;
+   if (stats) primme->stats.numMatvecs += *blockSize * 2;
+}
+
 
 void plot_filter(int n, filter_params *filter, primme_params *primme, FILE *out) {
    int i;

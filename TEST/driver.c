@@ -337,10 +337,11 @@ static int real_main (int argc, char *argv[]) {
       PRIMME_NUM *Ax, *r;
       int one = 1, i,j;
       double auxd;
+      void (*matvec)(void*,void*,int*,struct primme_params*) = driver.AFilter.filter == 13 ? primme->matrixMatvec : driver.AFilter.matvec;
       Ax = (PRIMME_NUM *)primme_calloc(primme->nLocal*2, sizeof(PRIMME_NUM), "Ax");
       r = Ax + primme->nLocal;
       for (i=0; i<primme->initSize; i++) {
-         driver.AFilter.matvec(&evecs[primme->nLocal*i], Ax, &one, primme);
+         matvec(&evecs[primme->nLocal*i], Ax, &one, primme);
          auxd = REAL_PARTZ(SUF(Num_dot)(primme->nLocal, COMPLEXZ(&evecs[primme->nLocal*i]), 1, COMPLEXZ(Ax), 1));
          if (primme->globalSumDouble) primme->globalSumDouble(&auxd, &evals[i], &one, primme);
          else evals[i] = auxd;
@@ -351,7 +352,7 @@ static int real_main (int argc, char *argv[]) {
          rnorms[i] = sqrt(rnorms[i]);
       }
       free(Ax);
-      primme->matrixMatvec = driver.AFilter.matvec;
+      primme->matrixMatvec = matvec;
    }
 
    if (driver.checkXFileName[0]) {
@@ -1084,4 +1085,9 @@ static void setFilters(driver_params *driver, primme_params *primme) {
    elapsedTimeAMV = elapsedTimeFilterMV = 0;
    numFilterApplies = 0;
 
+   switch(driver->AFilter.filter) {
+      case 13:
+         Setup_filter_augmented(&driver->AFilter, primme);
+         break;
+   }
 }
