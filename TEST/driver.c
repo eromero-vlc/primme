@@ -666,7 +666,7 @@ static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int
                   ierr = PCSetType(pc, PCILU); CHKERRQ(ierr);
                }
                else {
-                  #ifndef USE_DOUBLECOMPLEX
+                  #ifdef PETSC_HAVE_HYPRE
                      ierr = PCSetType(pc, PCHYPRE); CHKERRQ(ierr);
                      ierr = PCHYPRESetType(pc, "parasails"); CHKERRQ(ierr);
                   #else
@@ -1037,9 +1037,16 @@ static void Apply_A_filter(void *x, void *y, int *blockSize,
                   primme_params *primme) {
 
    driver_params *driver = (driver_params*)primme;
+   double ub, lb;
+   tune_filter(&driver->AFilter, primme, blockSize == 0);
    Apply_filter(x, y, blockSize, &driver->AFilter, primme, 1);
    if (primme->printLevel >= 5 && blockSize) plot_filter(1000, &driver->AFilter, primme, stderr);
    if (blockSize) primme->stats.numMatvecs -= *blockSize;
+   if (primme->printLevel > 3 && primme->outputFile) {
+      getBounds(&driver->AFilter, primme, &lb, &ub);
+      fprintf(primme->outputFile, "filter: A %d lb:%g ub:%g d:%d\n", driver->AFilter.filter, lb, ub, driver->AFilter.degrees);
+   }
+
 
 }
 
@@ -1047,9 +1054,15 @@ static void Apply_precon_filter(void *x, void *y, int *blockSize,
                   primme_params *primme) {
 
    driver_params *driver = (driver_params*)primme;
+   double ub, lb;
+   tune_filter(&driver->precFilter, primme, blockSize == 0);
    Apply_filter(x, y, blockSize, &driver->precFilter, primme, 1);
    if (primme->printLevel >= 5 && blockSize) plot_filter(1000, &driver->precFilter, primme, stderr);
    if (blockSize) primme->stats.numPreconds -= *blockSize;
+   if (primme->printLevel > 3 && primme->outputFile) {
+      getBounds(&driver->precFilter, primme, &lb, &ub);
+      fprintf(primme->outputFile, "filter: Prec %d lb:%g ub:%g d:%d\n", driver->precFilter.filter, lb, ub, driver->precFilter.degrees);
+   }
 
 }
 

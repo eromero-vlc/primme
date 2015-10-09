@@ -518,6 +518,9 @@ int read_driver_params(char *configFileName, driver_params *driver) {
          else if (strcmp(ident, "driver.PrecFilterUBFix") == 0) {
             ret = fscanf(configFile, "%lf", &driver->precFilter.upperBoundFix);
          }
+         else if (strcmp(ident, "driver.PrecFilterCheckEps") == 0) {
+            ret = fscanf(configFile, "%lf", &driver->precFilter.checkEps);
+         }
          else if (strcmp(ident, "driver.AFilter") == 0) {
             ret = fscanf(configFile, "%d", &driver->AFilter.filter);
          }
@@ -535,6 +538,9 @@ int read_driver_params(char *configFileName, driver_params *driver) {
          }
          else if (strcmp(ident, "driver.AFilterUBFix") == 0) {
             ret = fscanf(configFile, "%lf", &driver->AFilter.upperBoundFix);
+         }
+         else if (strcmp(ident, "driver.AFilterCheckEps") == 0) {
+            ret = fscanf(configFile, "%lf", &driver->AFilter.checkEps);
          }
          else if (strcmp(ident, "driver.OrthoFilter") == 0) {
             ret = fscanf(configFile, "%d", &driver->orthoFilter.filter);
@@ -640,7 +646,8 @@ fprintf(outputFile, "driver.PrecFilterLowerBound  = %d   // %s\n", driver.precFi
 fprintf(outputFile, "driver.PrecFilterUpperBound  = %d   // %s\n", driver.precFilter.upperBound,
          helpBoundFilter[driver.precFilter.upperBound]);
 fprintf(outputFile, "driver.PrecFilterLBFix       = %lf\n", driver.precFilter.lowerBoundFix);
-fprintf(outputFile, "driver.PrecFilterUBFix       = %lf\n\n", driver.precFilter.upperBoundFix);
+fprintf(outputFile, "driver.PrecFilterUBFix       = %lf\n", driver.precFilter.upperBoundFix);
+fprintf(outputFile, "driver.PrecFilterCheckEps    = %lf\n\n", driver.precFilter.checkEps);
 
 fprintf(outputFile, "driver.AFilter            = %d   // %s\n", driver.AFilter.filter,
          helpFilter[driver.AFilter.filter]);
@@ -650,7 +657,8 @@ fprintf(outputFile, "driver.AFilterLowerBound  = %d   // %s\n", driver.AFilter.l
 fprintf(outputFile, "driver.AFilterUpperBound  = %d   // %s\n", driver.AFilter.upperBound,
          helpBoundFilter[driver.AFilter.upperBound]);
 fprintf(outputFile, "driver.AFilterLBFix       = %lf\n", driver.AFilter.lowerBoundFix);
-fprintf(outputFile, "driver.AFilterUBFix       = %lf\n\n", driver.AFilter.upperBoundFix);
+fprintf(outputFile, "driver.AFilterUBFix       = %lf\n", driver.AFilter.upperBoundFix);
+fprintf(outputFile, "driver.AFilterCheckEps    = %lf\n\n", driver.AFilter.checkEps);
 
 fprintf(outputFile, "driver.OrthoFilter            = %d   // %s\n", driver.orthoFilter.filter,
          helpFilter[driver.orthoFilter.filter]);
