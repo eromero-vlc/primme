@@ -74,8 +74,21 @@
 #include "wtime.h"
 
 #include "filters.h"
+#include "costmodels.h"
 
 #define ASSERT_MSG(COND, RETURN, ...) { if (!(COND)) {fprintf(stderr, "Error in " __FUNCT__ ": " __VA_ARGS__); return (RETURN);} }
+
+#define ADD_STATS(A,B) {\
+   (A).numOuterIterations += (B).numOuterIterations; \
+   (A).numRestarts        += (B).numRestarts; \
+   (A).numMatvecs         += (B).numMatvecs; \
+   (A).elapsedTimeMatvec  += (B).elapsedTimeMatvec; \
+   (A).numPreconds        += (B).numPreconds; \
+   (A).elapsedTimePrecond += (B).elapsedTimePrecond; \
+   (A).elapsedTime        += (B).elapsedTime; \
+   (A).numReorthos        += (B).numReorthos ; \
+   (A).elapsedTimeOrtho   += (B).elapsedTimeOrtho;\
+   (A).elapsedTimeSolveH  += (B).elapsedTimeSolveH;}
 
 static int real_main (int argc, char *argv[]);
 static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int **permutation);
@@ -147,11 +160,12 @@ static int real_main (int argc, char *argv[]) {
    driver_params driver;
    primme_params *primme = &driver.primme;
    primme_preset_method method;
+   primme_stats stats0 = (primme_stats){0,0,0,0,0,0,0,0,0,0,0,0,0,0};
    int *permutation = NULL;
 
    /* Other miscellaneous items */
    int ret, retX=0;
-   int i;
+   int i, numOrthoConst0, nconv, minRestartSize;
    int master = 1;
    int procID = 0;
 
@@ -325,7 +339,26 @@ static int real_main (int argc, char *argv[]) {
    primme_get_time(&ut1,&st1);
 #endif
 
-   ret = PREFIX(primme)(evals, COMPLEXZ(evecs), rnorms, primme);
+   numOrthoConst0 = primme->numOrthoConst;
+   minRestartSize = primme->minRestartSize;
+   nconv = 0;
+   while(1) {
+      ret = PREFIX(primme)(evals+primme->numOrthoConst-numOrthoConst0, COMPLEXZ(evecs),
+                           rnorms+primme->numOrthoConst-numOrthoConst0, primme);
+      ADD_STATS(stats0, primme->stats);
+      nconv += primme->initSize;
+      //primme->numEvals -= primme->initSize;
+      if (primme->maxMatvecs != -1) break;
+      primme->maxMatvecs = 0;
+      //primme->numOrthoConst += primme->initSize;
+      //primme->initSize = primme->minRestartSize;
+      primme->initSize = primme->minRestartSize+primme->initSize;
+      primme->minRestartSize = minRestartSize;
+      primme_display_params(*primme);
+   }
+   primme->stats = stats0;
+   //primme->initSize = nconv;
+   //primme->numEvals += nconv;
 
    wt2 = primme_get_wtime();
 #if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
@@ -1037,31 +1070,64 @@ static void Apply_A_filter(void *x, void *y, int *blockSize,
                   primme_params *primme) {
 
    driver_params *driver = (driver_params*)primme;
-   double ub, lb;
-   tune_filter(&driver->AFilter, primme, blockSize == 0);
+   double ub, lb, ub0, lb0;
+   int oldDegrees = driver->AFilter.degrees, newDegrees = oldDegrees;
+   static int iwork[4];
+   static double work[4];
+   static filter_params filter0 = {-10,0};
+
+   /* Save a copy of the original filter parameters */
+   if (filter0.filter == -10) filter0 = driver->AFilter;
+
+   if (blockSize && filter0.degrees < 0) {
+      if (reconsider_degree_filter(&driver->AFilter, primme, work, iwork, timeCostModelA)) {
+         if (oldDegrees > 1) {
+            newDegrees = driver->AFilter.degrees;
+            driver->AFilter.degrees = oldDegrees;
+         }
+      }
+   }
+   if (driver->AFilter.degrees > 0)
+      tune_filter(&driver->AFilter, primme, blockSize == 0);
    Apply_filter(x, y, blockSize, &driver->AFilter, primme, 1);
    if (primme->printLevel >= 5 && blockSize) plot_filter(1000, &driver->AFilter, primme, stderr);
    if (blockSize) primme->stats.numMatvecs -= *blockSize;
    if (primme->printLevel > 3 && primme->outputFile) {
-      getBounds(&driver->AFilter, primme, &lb, &ub);
-      fprintf(primme->outputFile, "filter: A %d lb:%g ub:%g d:%d\n", driver->AFilter.filter, lb, ub, driver->AFilter.degrees);
+      getBoundsTuned(&driver->AFilter, primme, &lb, &ub);
+      getBounds(&driver->AFilter, primme, &lb0, &ub0);
+      fprintf(primme->outputFile, "filter: A %d bounds: [ %g %g ] bounds0: [ %g %g] d:%d\n", driver->AFilter.filter, lb, ub, lb0, ub0, driver->AFilter.degrees);
    }
-
-
+   if (oldDegrees >= 0 && oldDegrees != newDegrees) {
+      /* Force restart PRIMME with the new degree */
+      driver->AFilter.degrees = newDegrees;
+      primme->maxMatvecs = -1;
+   }
 }
 
 static void Apply_precon_filter(void *x, void *y, int *blockSize,
                   primme_params *primme) {
 
    driver_params *driver = (driver_params*)primme;
-   double ub, lb;
-   tune_filter(&driver->precFilter, primme, blockSize == 0);
+   double ub, lb, ub0, lb0;
+   static int iwork[4];
+   static double work[4];
+   static filter_params filter0 = {-10,0};
+
+   /* Save a copy of the original filter parameters */
+   if (filter0.filter == -10) filter0 = driver->precFilter;
+
+   if (blockSize && filter0.degrees < 0) {
+      reconsider_degree_filter(&driver->precFilter, primme, work, iwork, timeCostModelPrecond);
+   }
+   if (driver->precFilter.degrees > 0)
+      tune_filter(&driver->precFilter, primme, blockSize == 0);
    Apply_filter(x, y, blockSize, &driver->precFilter, primme, 1);
    if (primme->printLevel >= 5 && blockSize) plot_filter(1000, &driver->precFilter, primme, stderr);
    if (blockSize) primme->stats.numPreconds -= *blockSize;
    if (primme->printLevel > 3 && primme->outputFile) {
-      getBounds(&driver->precFilter, primme, &lb, &ub);
-      fprintf(primme->outputFile, "filter: Prec %d lb:%g ub:%g d:%d\n", driver->precFilter.filter, lb, ub, driver->precFilter.degrees);
+      getBoundsTuned(&driver->AFilter, primme, &lb, &ub);
+      getBounds(&driver->AFilter, primme, &lb0, &ub0);
+      fprintf(primme->outputFile, "filter: A %d bounds: [ %g %g ] bounds0: [ %g %g] d:%d\n", driver->AFilter.filter, lb, ub, lb0, ub0, driver->AFilter.degrees);
    }
 
 }

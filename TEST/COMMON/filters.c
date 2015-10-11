@@ -201,6 +201,15 @@ void getBounds(filter_params *filter, primme_params *primme, double *lb, double 
    }
 }
 
+void getBoundsTuned(filter_params *filter, primme_params *primme, double *lb, double *ub) {
+   if (filter->checkEps == 0) {
+      getBounds(filter, primme, lb, ub);
+   } else {
+      *lb = filter->lowerBoundTuned;
+      *ub = filter->upperBoundTuned;
+   }
+}
+
 /******************************************************************************
  * Applies a polynomial filter as a preconditioner
  *
@@ -212,7 +221,7 @@ static void Apply_filter_jackson(void *x, void *y, int *blockSize, filter_params
    double lowerBound, upperBound, lBNormalized, uBNormalized;
    double *mu;
 
-   getBounds(filter, primme, &lowerBound, &upperBound);
+   getBoundsTuned(filter, primme, &lowerBound, &upperBound);
    lBNormalized = (lowerBound - filter->minEig)/(filter->maxEig - filter->minEig)*2. - 1;
    uBNormalized = (upperBound - filter->minEig)/(filter->maxEig - filter->minEig)*2. - 1;
    if (delta) lBNormalized = uBNormalized = (lBNormalized + uBNormalized)/2.;
@@ -479,7 +488,7 @@ static void Apply_filter_cheb(void *x, void *y, int *blockSize, filter_params *f
    int j,k,j0,bs=*blockSize;
    double t0;
 
-   getBounds(filter, primme, &lowerBound, &upperBound);
+   getBoundsTuned(filter, primme, &lowerBound, &upperBound);
    if (lowerBound <= filter->minEig && upperBound >= filter->maxEig) {
       Apply_original(x, y, blockSize, filter, primme, stats);
       return;
@@ -566,7 +575,7 @@ static void Apply_filter_cheb_interior(void *x, void *y, int *blockSize, filter_
 //   double t0;
 //
 //   matrix = (CSRMatrix *)primme->matrix;
-//   getBounds(filter, primme, &lowerBound, &upperBound);
+//   getBoundsTuned(filter, primme, &lowerBound, &upperBound);
 //   if (primme->numTargetShifts) target = primme->targetShifts[0];
 //   else target = (driver.minEig + driver.maxEig)/2.0;
 //
@@ -639,7 +648,7 @@ void Apply_filter_modelcheb(void *x, void *y, int *blockSize, filter_params *fil
    xvec = (PRIMME_NUM *)x;
    yvec = (PRIMME_NUM *)y;
 
-   getBounds(filter, primme, &lowerBound, &upperBound);
+   getBoundsTuned(filter, primme, &lowerBound, &upperBound);
    aux = (PRIMME_NUM *)primme_calloc(primme->nLocal*3, sizeof(PRIMME_NUM), "aux");
    for (j=0; j<*blockSize; j++) {
       modelChebAv(primme, &xvec[primme->nLocal*j], filter->degrees, filter->minEig, filter->maxEig, lowerBound, upperBound, &yvec[primme->nLocal*j], aux, filter, stats);
@@ -737,7 +746,7 @@ static void Apply_filter_filtlan(void *x, void *y, int *blockSize, filter_params
    int i;
    primme_spmv_params ctxt = {primme, filter, stats};
 
-   getBounds(filter, primme, &lowerBound, &upperBound);
+   getBoundsTuned(filter, primme, &lowerBound, &upperBound);
    frame[0] = filter->minEig; frame[3] = filter->maxEig;
    frame[1] = lowerBound; frame[2] = upperBound;
    
@@ -787,7 +796,7 @@ static void Apply_filter_feast(void *x, void *y, int *blockSize, filter_params *
    double *rnorms, *evals;
    
    if (!blockSize) return;
-   getBounds(filter, primme, &lowerBound, &upperBound);
+   getBoundsTuned(filter, primme, &lowerBound, &upperBound);
    ncv = *blockSize;
    work1 = (PRIMME_NUM *)primme_calloc(primme->n*ncv, sizeof(PRIMME_NUM), "work1");
    work2 = (PRIMME_NUM *)primme_calloc(primme->n*ncv, sizeof(PRIMME_NUM), "work2");
@@ -873,8 +882,7 @@ void Apply_filter_augmented(void *x, void *y, int *blockSize, filter_params *fil
                             primme_params *primme, int stats) {
 
    int j,nLocal=primme->nLocal,n=primme->n,one=1;
-   double lowerBound, upperBound;
-   PRIMME_NUM *xvec, *yvec, *aux;
+   PRIMME_NUM *xvec, *yvec;
 
    xvec = (PRIMME_NUM *)x;
    yvec = (PRIMME_NUM *)y;
@@ -896,7 +904,7 @@ void plot_filter(int n, filter_params *filter, primme_params *primme, FILE *out)
    double *xy, lb, ub, chk;
    static double lst_chk=0;
    
-   getBounds(filter, primme, &lb, &ub);
+   getBoundsTuned(filter, primme, &lb, &ub);
    chk = lb*ub*filter->degrees*filter->minEig*filter->maxEig;
    if (chk == lst_chk) return;
    lst_chk = chk;
@@ -976,16 +984,17 @@ static int level_filter_bounds(filter_params *filter, primme_params *primme) {
    double x[2], y[2], z0=0, z1, *z, zb;
    int i;
 
-   x[0] = filter->lowerBoundFix;
-   x[1] = filter->upperBoundFix;
-   z = &filter->upperBoundFix;
-   zb = filter->lowerBoundFix;
+   getBounds(filter, primme, &filter->lowerBoundTuned, &filter->upperBoundTuned);
+   x[0] = filter->lowerBoundTuned;
+   x[1] = filter->upperBoundTuned;
+   z = &filter->upperBoundTuned;
+   zb = filter->lowerBoundTuned;
    eval_filter(x, y, 2, filter, primme);
    if (y[1] > y[0]) {
       x[0] = x[1];
-      x[1] = filter->lowerBoundFix;
-      z = &filter->lowerBoundFix;
-      zb = filter->upperBoundFix;
+      x[1] = filter->lowerBoundTuned;
+      z = &filter->lowerBoundTuned;
+      zb = filter->upperBoundTuned;
    }
    for (i=0; i<1000 && *z >= filter->minEig && *z <= filter->maxEig; i++) {
       z0 = *z;
@@ -993,6 +1002,7 @@ static int level_filter_bounds(filter_params *filter, primme_params *primme) {
       eval_filter(x, y, 2, filter, primme);
       if (y[1] >= y[0]) break;
    }
+   *z = max(filter->minEig, min(filter->maxEig, *z)); 
    if (y[1] < y[0]) return 0;
    z1 = *z;
    while (fabs(y[1]-y[0])/fabs(y[1]+y[0])*2>.1) {
@@ -1012,9 +1022,8 @@ static double check_filter_split(double *x, double *y, int n, filter_params *fil
    int i, iMaxIn;
    double fb, maxIn, maxInD, maxOutD, lb, ub;
 
-   assert (n>2);
-   lb = filter->lowerBoundFix;
-   ub = filter->upperBoundFix;
+   getBounds(filter, primme, &lb, &ub);
+   assert(n > 2 && x[0] == lb && x[1] == ub);
    eval_filter(x, y, n, filter, primme);
    fb = max(y[0], y[1]);
    maxIn = -HUGE_VAL;
@@ -1040,38 +1049,25 @@ int tune_filter(filter_params *filter, primme_params *primme, int onlyIfStatic) 
    double chk, lb, ub;
 
    if (filter->checkEps > 0.0 && (!onlyIfStatic || (filter->lowerBound == 8 && filter->upperBound == 8))) {
-      if (!filter->filter0) {
-         if (filter->lowerBound == 8 && filter->upperBound == 8) {
-            filter->filter0 = filter;
-         } else {
-            filter->filter0 = (filter_params*)primme_calloc(1, sizeof(filter_params), "filter0");
-            *filter->filter0 = *filter;
-         }
-      }
-      getBounds(filter->filter0, primme, &lb, &ub);
-      chk = lb*ub*filter->degrees*filter->minEig*filter->maxEig;
+      getBounds(filter, primme, &lb, &ub);
+      chk = lb+ub+filter->degrees+filter->minEig+filter->maxEig;
       if (filter->lastCheckCS != chk) {
-         *filter = *filter->filter0;
-         filter->lowerBoundFix = lb;
-         filter->upperBoundFix = ub;
-         filter->lowerBound = filter->upperBound = 8;
-         check_filter(filter->checkEps, 2, filter->degrees, filter, primme);
-         getBounds(filter, primme, &lb, &ub);
-         chk = lb*ub*filter->degrees*filter->minEig*filter->maxEig;
+         check_filter(filter->checkEps, filter->degrees, 500, filter, primme);
          filter->lastCheckCS = chk;
       }
    }
+   return 0;
 }
 
 static int check_filter(double a, int d0, int d1, filter_params *filter, primme_params *primme) {
    int i, d, j, b=1;
    const int n = d1*100;
    double *xy, lb, ub, q;
-   const filter_params filter0 = *filter;
 
    xy = (double *)primme_calloc(n*2+4, sizeof(double), "xy");
-   xy[0] = lb = filter->lowerBoundFix;
-   xy[1] = ub = filter->upperBoundFix;
+   getBounds(filter, primme, &lb, &ub);
+   xy[0] = lb;
+   xy[1] = ub;
    for (i=0, j=2; i < n/2; i++, j++) {
       xy[j] = (filter->maxEig - filter->minEig - ub + lb)/(double)(n/2+1)*(double)(i+1) + filter->minEig;
       if (xy[j] >= lb) break;
@@ -1085,33 +1081,27 @@ static int check_filter(double a, int d0, int d1, filter_params *filter, primme_
    }
    assert(j == n+2);
    for (d=d0, b=1; d<d1; d0=d, b*=2, d+=b) {
-      *filter = filter0;
       filter->degrees = d;
-      level_filter_bounds(filter, primme);
+      if (!level_filter_bounds(filter, primme)) continue;
       if ((q = check_filter_split(xy, &xy[n+2], n+2, filter, primme)) >= a) break;
    }
    if (d >= d1) {
-      *filter = filter0;
       filter->degrees = d = d1;
       level_filter_bounds(filter, primme);
       if ((q = check_filter_split(xy, &xy[n+2], n+2, filter, primme)) < a) {
          if (primme->printLevel >= 4)
             printf("check_filter: failed! degrees %d scale: %g\n", filter->degrees, q);
          free(xy);
-         //*filter = filter0;
          return 0;
       }
    }
    d1 = d;
    while (d0+1 < d1) {
-      *filter = filter0;
       filter->degrees = d = (d0 + d1 + 1)/2;
-      level_filter_bounds(filter, primme);
-      if ((q = check_filter_split(xy, &xy[n+2], n+2, filter, primme)) >= a) d1 = d;
+      if (level_filter_bounds(filter, primme) && (q = check_filter_split(xy, &xy[n+2], n+2, filter, primme)) >= a) d1 = d;
       else d0 = d;
    }
    if (d != d1) {
-      *filter = filter0;
       filter->degrees = d1;
       level_filter_bounds(filter, primme);
       assert((q = check_filter_split(xy, &xy[n+2], n+2, filter, primme)) >= a);

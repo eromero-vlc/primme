@@ -6,7 +6,7 @@ include ../Link_flags
 #------------------------------------------------
 
 
-SOBJS= driver.o COMMON/shared_utils.o COMMON/filters.o
+SOBJS= driver.o COMMON/shared_utils.o COMMON/filters.o COMMON/costmodels.o
 COMMON_INCLUDE = -I./COMMON -I../PRIMMESRC/COMMONSRC
 override INCLUDE += $(COMMON_INCLUDE)
 LIBDIRS += -L../
@@ -209,7 +209,10 @@ COMMON/parasailsw.h: COMMON/csr.h
 COMMON/petscw.c: COMMON/petscw.h COMMON/mmio.h
 COMMON/petscw.h: COMMON/num.h
 COMMON/shared_utils.c: COMMON/shared_utils.h
-COMMON/driver.c: COMMON/shared_utils.h COMMON/native.h COMMON/parasailsw.h COMMON/petscw.h
+COMMON/driver.c: COMMON/shared_utils.h COMMON/native.h COMMON/parasailsw.h COMMON/petscw.h \
+                 COMMON/filters.h COMMON/costmodels.h
+COMMON/filters.c: COMMON/filters.h
+COMMON/costmodels.c: COMMON/costmodels.h
 
 ex_dseq.c: ex_c.m4
 	m4 ex_c.m4 > $@

@@ -33,8 +33,7 @@ typedef struct filter_params {
    int degrees;
    int lowerBound;
    int upperBound;
-   double lowerBoundFix;
-   double upperBoundFix;
+   double lowerBoundFix, upperBoundFix, lowerBoundTuned, upperBoundTuned;
    int prodIfFullRange;
    double minEig, maxEig;
    void (*matvec)
@@ -42,7 +41,6 @@ typedef struct filter_params {
    void (*precond)
       ( void *x,  void *y, int *blockSize, struct primme_params *primme);
    double checkEps, lastCheckCS;
-   struct filter_params *filter0; 
 } filter_params;
 
 

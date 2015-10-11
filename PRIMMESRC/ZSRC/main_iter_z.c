@@ -233,11 +233,7 @@ int main_iter_zprimme(double *evals, int *perm, Complex_Z *evecs,
    /* Initialize counters and flags                                  */
    /* -------------------------------------------------------------- */
 
-   primme->stats.numOuterIterations = 0;
-   primme->stats.numRestarts = 0;
-   primme->stats.numMatvecs = 0;
-   primme->stats.numColumnsOrtho = 0;
-   primme->stats.elapsedTimeOrtho = 0;
+   primme->stats = (primme_stats){0,0,0,0,0,0,0,0,0,0,0,0,0,0};
    primme->stats.currentEigFirstIteration = -1;
    primme->stats.currentEigFirstResidual = -1;
 
@@ -585,6 +581,12 @@ int main_iter_zprimme(double *evals, int *perm, Complex_Z *evecs,
          /* Return flag showing if there has been a locking problem */
          intWork[0] = LockingProblem;
 
+         /* If forced to reinit, copy V to evecs */
+         if (primme->maxMatvecs == -1) {
+            primme->minRestartSize = min(min(primme->minRestartSize, primme->numEvals-primme->initSize), basisSize);
+            Num_zcopy_zprimme(primme->nLocal*primme->minRestartSize, V, 1, &evecs[primme->nLocal*(primme->initSize+primme->numOrthoConst)], 1);
+         }
+
          /* If all of the target eigenvalues have been computed, */
          /* then return success, else return with a failure.     */
  
@@ -623,7 +625,7 @@ int main_iter_zprimme(double *evals, int *perm, Complex_Z *evecs,
          /* iterating.                                                 */
          /* ---------------------------------------------------------- */
 
-         if (restartLimitReached || converged) {
+         if (restartLimitReached || converged || primme->maxMatvecs == -1) {
             for (i=0; i < primme->numEvals; i++) {
                evals[i] = hVals[i];
                perm[i] = i;
@@ -646,6 +648,12 @@ int main_iter_zprimme(double *evals, int *perm, Complex_Z *evecs,
                   primme->dynamicMethodSwitch = -1;  /* Use GD+k */
                else
                   primme->dynamicMethodSwitch = -3;  /* Close call.Use dynamic*/
+            }
+
+            /* If forced to reinit, copy V to evecs */
+            if (primme->maxMatvecs == -1) {
+               primme->minRestartSize = min(min(primme->minRestartSize, primme->numEvals-primme->initSize), basisSize);
+               Num_zcopy_zprimme(primme->nLocal*primme->minRestartSize, V, 1, &evecs[primme->nLocal*(primme->initSize+primme->numOrthoConst)], 1);
             }
 
             if (converged) {
