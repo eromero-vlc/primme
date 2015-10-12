@@ -61,6 +61,8 @@ void primme_initialize(primme_params *primme) {
    /* Shifts for interior eigenvalues*/
    primme->numTargetShifts         = 0;
    primme->targetShifts            = NULL;
+   primme->numBounds               = 0;
+   primme->bounds                  = NULL;
 
    /* Parallel computing parameters */
    primme->numProcs                = 1;
@@ -533,6 +535,16 @@ if (primme.numTargetShifts > 0) {
    }
    fprintf(outputFile, "\n");
 }
+
+fprintf(outputFile, "primme.numBounds = %d\n",primme.numBounds);
+if (primme.numBounds > 0) {
+   fprintf(outputFile, "primme.bounds =");
+   for (i=0; i<primme.numBounds;i++) {
+      fprintf(outputFile, " %e",primme.bounds[i]);
+   }
+   fprintf(outputFile, "\n");
+}
+
 
 fprintf(outputFile, "primme.dynamicMethodSwitch = %d\n",
                                                 primme.dynamicMethodSwitch);

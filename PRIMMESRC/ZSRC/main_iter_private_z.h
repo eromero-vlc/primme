@@ -55,6 +55,8 @@ static int verify_norms(Complex_Z *V, Complex_Z *W, Complex_Z *hVecs, double *hV
    int basisSize, double *resNorms, int *flag, double tol, double aNormEstimate,
    void *rwork, int *numConverged, primme_params *primme);
 
+static int check_evalue_inbounds(double eval, double s, primme_params *primme);
+
 /*----------------------------------------------------------------------------*
  * The following are needed for the Dynamic Method Switching
  *----------------------------------------------------------------------------*/

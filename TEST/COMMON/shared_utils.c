@@ -231,6 +231,25 @@ int read_solver_params(char *configFileName, char *outputFileName,
                }
             }
          }
+         else if (strcmp(ident, "primme.numBounds") == 0) {
+            ret = fscanf(configFile, "%d", &primme->numBounds);
+         }
+         else if (strcmp(ident, "primme.bounds") == 0) {
+            ret = 1;
+            if (primme->numBounds >0) {
+               primme->bounds = (double *)primme_calloc(
+                  primme->numBounds, sizeof(double), "bounds");
+               for (i=0;i<primme->numBounds; i++) {
+                  ret = fscanf(configFile, "%le", &primme->bounds[i]);
+                  if (ret != 1) break;
+               }
+            }
+            if (ret == 1) {
+               if (fgets(ident, 2048, configFile) == NULL) {
+                  break;
+               }
+            }
+         }
          else if (strcmp(ident, "primme.correction.projectors.LeftQ") == 0) {
             ret = fscanf(configFile, "%d", 
                      &primme->correctionParams.projectors.LeftQ );

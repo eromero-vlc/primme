@@ -401,6 +401,17 @@ int main_iter_@(pre)primme(double *evals, int *perm, @(type) *evecs,
                   break;
             }
 
+            /* If no eigenvalue in the search subspace is in bounds, break */
+            if (recentlyConverged > 0 && primme->numBounds > 0 && blockSize > 0) {
+               for (i=0; i<blockSize; i++) {
+                  if (check_evalue_inbounds(hVals[iev[i]], blockNorms[i], primme)) break;
+               }
+               if (i >= blockSize) {
+                  converged = 1;
+                  break;
+               }
+            }
+
             /* If the block size is zero, the whole basis spans an exact     */
             /* (converged) eigenspace. Then, since not all needed evecs have */
             /* been found, we must generate a new set of vectors to proceed. */
@@ -1003,6 +1014,34 @@ static int verify_norms(@(type) *V, @(type) *W, @(type) *hVecs,
    }
 
    return converged;
+}
+
+static int check_evalue_inbounds(double eval, double s, primme_params *primme)
+{
+   int i,j;
+
+   if (primme->numBounds <= 0) return 1;
+   if (primme->target == primme_smallest) {
+      for (i=0; i<primme->numBounds; i++)
+         if (eval-s <= primme->bounds[i])
+            return 1;
+   }
+   else if (primme->target == primme_largest) {
+      for (i=0; i<primme->numBounds; i++)
+         if (eval+s >= primme->bounds[i])
+            return 1;
+   }
+   else {
+      for (i=0; i<primme->numBounds; i++) {
+         if (eval+s >= primme->bounds[i]) {
+            for (j=0; j<primme->numBounds; j++) {
+               if (eval-s <= primme->bounds[j])
+                  return 1;
+            }
+         }
+      }
+   }
+   return 0;
 }
 
 /******************************************************************************

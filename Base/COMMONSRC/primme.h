@@ -179,6 +179,8 @@ typedef struct primme_params {
    primme_target target; 
    int numTargetShifts;              /* For targeting interior epairs,      */
    double *targetShifts;             /* at least one shift must also be set */
+   double *bounds;                   /* Stop if an eigenvalue is found      */
+   int numBounds;                    /* outside the bounds.                 */
 
    /* the following will be given default values depending on the method */
    int dynamicMethodSwitch;
