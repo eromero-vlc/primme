@@ -73,4 +73,36 @@
 #  define min(a, b) ((a) < (b) ? (a) : (b))
 #endif
 
+#include "primme.h"
+
+static PRIMME_NUM primme_dot(PRIMME_NUM *x, PRIMME_NUM *y, primme_params *primme) {
+   PRIMME_NUM aux, aux0;
+#ifdef USE_DOUBLECOMPLEX
+   int one = 2;
+#else
+   int one = 1;
+#endif
+   aux = COMPLEXV(SUF(Num_dot)(primme->nLocal, COMPLEXZ(x), 1, COMPLEXZ(y), 1));
+   if (primme->globalSumDouble) {
+      primme->globalSumDouble(&aux, &aux0, &one, primme);
+      return aux0;
+   }
+   return aux;
+}
+
+static double primme_ddot(PRIMME_NUM *x, PRIMME_NUM *y, primme_params *primme) {
+   double aux, aux0;
+   int one = 1;
+   aux = REAL_PARTZ(SUF(Num_dot)(primme->nLocal, COMPLEXZ(x), 1, COMPLEXZ(y), 1));
+   if (primme->globalSumDouble) {
+      primme->globalSumDouble(&aux, &aux0, &one, primme);
+      return aux0;
+   }
+   return aux;
+}
+
+static void primme_copy(int n, PRIMME_NUM *x, PRIMME_NUM *y) {
+   int i;
+   for (i=0; i<n; i++) y[i] = x[i];
+} 
 #endif /* NUM_H */

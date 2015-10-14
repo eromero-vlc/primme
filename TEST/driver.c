@@ -99,6 +99,7 @@ static void par_GlobalSumDouble(void *sendBuf, void *recvBuf, int *count,
                          primme_params *primme);
 #endif
 static void setFilters(driver_params *driver, primme_params *primme);
+static void unsetFilters(double *evals, PRIMME_NUM *evecs, double *rnorms, primme_params *primme);
 static int check_solution(const char *checkXFileName, primme_params *primme, double *evals,
                           PRIMME_NUM *evecs, double *rnorms, int *perm);
 static int destroyMatrixAndPrecond(driver_params *driver, primme_params *primme, int *permutation);
@@ -107,7 +108,10 @@ static int writeBinaryEvecsAndPrimmeParams(const char *fileName, PRIMME_NUM *X, 
 static int readBinaryEvecsAndPrimmeParams(const char *fileName, PRIMME_NUM *X, PRIMME_NUM **Xout,
                                           int n, int Xcols, int *Xcolsout, int nLocal,
                                           int *perm, primme_params *primme);
-
+static int primmew(double *evals, PRIMME_NUM *evecs, double *rnorms, primme_params *primme);
+static int spectrum_slicing(double *evals, PRIMME_NUM *evecs, double *rnorms, primme_params *primme,
+                            int maxNumEvals, int *perm);
+static int slice_tree(double *lb, double *ub, double lastMinEig, double lastMaxEig, double *queue, int lqueue, int *qtop);
 
 
 int main (int argc, char *argv[]) {
@@ -160,12 +164,11 @@ static int real_main (int argc, char *argv[]) {
    driver_params driver;
    primme_params *primme = &driver.primme;
    primme_preset_method method;
-   primme_stats stats0 = (primme_stats){0,0,0,0,0,0,0,0,0,0,0,0,0,0};
    int *permutation = NULL;
 
    /* Other miscellaneous items */
    int ret, retX=0;
-   int i, numOrthoConst0, nconv, minRestartSize;
+   int i, *eperm = NULL;
    int master = 1;
    int procID = 0;
 
@@ -283,6 +286,8 @@ static int real_main (int argc, char *argv[]) {
       driver_display_method(method, primme->outputFile);
    }
 
+
+
    /* --------------------------------------------------------------------- */
    /*                            Run the d/zprimme solver                   */
    /* --------------------------------------------------------------------- */
@@ -339,54 +344,17 @@ static int real_main (int argc, char *argv[]) {
    primme_get_time(&ut1,&st1);
 #endif
 
-   numOrthoConst0 = primme->numOrthoConst;
-   minRestartSize = primme->minRestartSize;
-   nconv = 0;
-   while(1) {
-      ret = PREFIX(primme)(evals+primme->numOrthoConst-numOrthoConst0, COMPLEXZ(evecs),
-                           rnorms+primme->numOrthoConst-numOrthoConst0, primme);
-      ADD_STATS(stats0, primme->stats);
-      nconv += primme->initSize;
-      //primme->numEvals -= primme->initSize;
-      if (primme->maxMatvecs != -1) break;
-      primme->maxMatvecs = 0;
-      //primme->numOrthoConst += primme->initSize;
-      //primme->initSize = primme->minRestartSize;
-      primme->initSize = primme->minRestartSize+primme->initSize;
-      primme->minRestartSize = minRestartSize;
-      primme_display_params(*primme);
+   if (primme->numBounds == 0) {
+      ret = primmew(evals, evecs, rnorms, primme);
+   } else {
+      eperm = (int *)primme_calloc(primme->numEvals, sizeof(int), "eperm");
+      ret = spectrum_slicing(evals, evecs, rnorms, primme, primme->numEvals, eperm);
    }
-   primme->stats = stats0;
-   //primme->initSize = nconv;
-   //primme->numEvals += nconv;
 
    wt2 = primme_get_wtime();
 #if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
    primme_get_time(&ut2,&st2);
 #endif
-
-   if (driver.AFilter.filter) {
-      /* Fix evalues and rnorms */
-      PRIMME_NUM *Ax, *r;
-      int one = 1, i,j;
-      double auxd;
-      void (*matvec)(void*,void*,int*,struct primme_params*) = driver.AFilter.filter == 13 ? primme->matrixMatvec : driver.AFilter.matvec;
-      Ax = (PRIMME_NUM *)primme_calloc(primme->nLocal*2, sizeof(PRIMME_NUM), "Ax");
-      r = Ax + primme->nLocal;
-      for (i=0; i<primme->initSize; i++) {
-         matvec(&evecs[primme->nLocal*i], Ax, &one, primme);
-         auxd = REAL_PARTZ(SUF(Num_dot)(primme->nLocal, COMPLEXZ(&evecs[primme->nLocal*i]), 1, COMPLEXZ(Ax), 1));
-         if (primme->globalSumDouble) primme->globalSumDouble(&auxd, &evals[i], &one, primme);
-         else evals[i] = auxd;
-         for (j=0; j<primme->nLocal; j++) r[j] = Ax[j] - evals[i]*evecs[primme->nLocal*i+j];
-         auxd = REAL_PARTZ(SUF(Num_dot)(primme->nLocal, COMPLEXZ(r), 1, COMPLEXZ(r), 1));
-         if (primme->globalSumDouble) primme->globalSumDouble(&auxd, &rnorms[i], &one, primme);
-         else rnorms[i] = auxd;
-         rnorms[i] = sqrt(rnorms[i]);
-      }
-      free(Ax);
-      primme->matrixMatvec = matvec;
-   }
 
    if (driver.checkXFileName[0]) {
       retX = check_solution(driver.checkXFileName, primme, evals, evecs, rnorms, permutation);
@@ -412,9 +380,9 @@ static int real_main (int argc, char *argv[]) {
       fprintf(primme->outputFile, "Syst Time           : %f seconds\n", st2-st1);
 #endif
 
-      for (i=0; i < primme->numEvals; i++) {
+      for (i=0; i < primme->initSize; i++) {
          fprintf(primme->outputFile, "Eval[%d]: %-22.15E rnorm: %-22.15E\n", i+1,
-            evals[i], rnorms[i]); 
+            evals[eperm?eperm[i]:i], rnorms[eperm?eperm[i]:i]); 
       }
       fprintf(primme->outputFile, " %d eigenpairs converged\n", primme->initSize);
 
@@ -732,7 +700,6 @@ static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int
 #if defined(USE_MPI)
    primme->globalSumDouble = par_GlobalSumDouble;
 #endif
-   setFilters(driver, primme);
 
    /* Build precond based on shift */
    if (driver->PrecChoice != driver_noprecond && driver->PrecChoice != driver_filter) {
@@ -902,19 +869,14 @@ static int check_solution(const char *checkXFileName, primme_params *primme, dou
    for (i=0; i < primme->initSize; i++) {
       /* Check |V(:,i)'A*V(:,i) - evals[i]| < |r|*|A| */
       primme->matrixMatvec(&evecs[primme->nLocal*i], Ax, &one, primme);
-      auxd = REAL_PARTZ(SUF(Num_dot)(primme->nLocal, COMPLEXZ(&evecs[primme->nLocal*i]), 1, COMPLEXZ(Ax), 1));
-      if (primme->globalSumDouble) primme->globalSumDouble(&auxd, &eval0, &one, primme);
-      else eval0 = auxd;
+      eval0 = REAL_PART(primme_dot(&evecs[primme->nLocal*i], Ax, primme));
       if (fabs(evals[i] - eval0) > rnorms[i]*primme->aNorm && primme->procID == 0) {
          fprintf(stderr, "Warning: Eval[%d] = %-22.15E should be close to %-22.1E\n", i, evals[i], eval0);
          retX = 1;
       }
       /* Check |A*V(:,i) - (V(:,i)'A*V(:,i))*V(:,i)| < |r| */
       for (j=0; j<primme->nLocal; j++) r[j] = Ax[j] - evals[i]*evecs[primme->nLocal*i+j];
-      auxd = REAL_PARTZ(SUF(Num_dot)(primme->nLocal, COMPLEXZ(r), 1, COMPLEXZ(r), 1));
-      if (primme->globalSumDouble) primme->globalSumDouble(&auxd, &rnorm0, &one, primme);
-      else rnorm0 = auxd;
-      rnorm0 = sqrt(rnorm0);
+      rnorm0 = sqrt(REAL_PART(primme_dot(r, r, primme)));
       if (fabs(rnorms[i]-rnorm0) > 4*max(primme->aNorm,fabs(evals[i]))*MACHINE_EPSILON && primme->procID == 0) {
          fprintf(stderr, "Warning: Eval[%d] = %-22.15E, residual | %5E - %5E | <= %5E\n", i, evals[i], rnorms[i], rnorm0, 4*max(primme->aNorm,fabs(evals[i]))*MACHINE_EPSILON);
          retX = 1;
@@ -1071,36 +1033,56 @@ static void Apply_A_filter(void *x, void *y, int *blockSize,
 
    driver_params *driver = (driver_params*)primme;
    double ub, lb, ub0, lb0;
-   int oldDegrees = driver->AFilter.degrees, newDegrees = oldDegrees;
-   static int iwork[4];
+   int oldDegrees;
+   static int iwork[4], newDegrees;
    static double work[4];
    static filter_params filter0 = {-10,0};
 
    /* Save a copy of the original filter parameters */
-   if (filter0.filter == -10) filter0 = driver->AFilter;
+   if (!blockSize && !x && !y) {
+      filter0 = driver->AFilter;
+      filter0.lowerBound = driver->AFilter.upperBound = 8; /* set fixed bounds */
+      filter0.lowerBoundFix = primme->bounds[0];
+      filter0.upperBoundFix = primme->bounds[1];
+      newDegrees = filter0.degrees;
+      primme->target = primme_largest;
+   }
+   /* Restore original primme params */
+   if (!blockSize && x && !y) {
+      primme->bounds[0] = filter0.lowerBoundFix;
+      primme->bounds[1] = filter0.upperBoundFix;
+      return;
+   }
+   assert(filter0.filter != -10);
 
-   if (blockSize && filter0.degrees < 0) {
-      if (reconsider_degree_filter(&driver->AFilter, primme, work, iwork, timeCostModelA)) {
+   oldDegrees = filter0.degrees;
+   if (oldDegrees != newDegrees && blockSize && primme->stats.numOuterIterations == 0) {
+      filter0.degrees = newDegrees;
+      oldDegrees = -1;
+   }
+      
+   if (blockSize && driver->AFilter.degrees < 0) {
+      if (reconsider_degree_filter(&filter0, primme, work, iwork, timeCostModelA)) {
          if (oldDegrees > 1) {
-            newDegrees = driver->AFilter.degrees;
-            driver->AFilter.degrees = oldDegrees;
+            newDegrees = filter0.degrees;
+            filter0.degrees = oldDegrees;
+            /* Force restart PRIMME with the new degree */
+            primme->maxMatvecs = -1;
+         } else {
+            oldDegrees = newDegrees = filter0.degrees;
          }
       }
    }
-   if (driver->AFilter.degrees > 0)
-      tune_filter(&driver->AFilter, primme, blockSize == 0);
-   Apply_filter(x, y, blockSize, &driver->AFilter, primme, 1);
-   if (primme->printLevel >= 5 && blockSize) plot_filter(1000, &driver->AFilter, primme, stderr);
+   if (filter0.degrees > 0)
+      if (tune_filter(&filter0, primme, blockSize == 0, 1))
+         oldDegrees = newDegrees = filter0.degrees;
+   Apply_filter(x, y, blockSize, &filter0, primme, 1);
+   if (primme->printLevel >= 5 && blockSize) plot_filter(1000, &filter0, primme, stderr);
    if (blockSize) primme->stats.numMatvecs -= *blockSize;
    if (primme->printLevel > 3 && primme->outputFile) {
-      getBoundsTuned(&driver->AFilter, primme, &lb, &ub);
-      getBounds(&driver->AFilter, primme, &lb0, &ub0);
-      fprintf(primme->outputFile, "filter: A %d bounds: [ %g %g ] bounds0: [ %g %g] d:%d\n", driver->AFilter.filter, lb, ub, lb0, ub0, driver->AFilter.degrees);
-   }
-   if (oldDegrees >= 0 && oldDegrees != newDegrees) {
-      /* Force restart PRIMME with the new degree */
-      driver->AFilter.degrees = newDegrees;
-      primme->maxMatvecs = -1;
+      getBoundsTuned(&filter0, primme, &lb, &ub);
+      getBounds(&filter0, primme, &lb0, &ub0);
+      fprintf(primme->outputFile, "filter: A %d bounds: [ %g %g ] bounds0: [ %g %g] d:%d\n", filter0.filter, lb, ub, lb0, ub0, filter0.degrees);
    }
 }
 
@@ -1120,7 +1102,7 @@ static void Apply_precon_filter(void *x, void *y, int *blockSize,
       reconsider_degree_filter(&driver->precFilter, primme, work, iwork, timeCostModelPrecond);
    }
    if (driver->precFilter.degrees > 0)
-      tune_filter(&driver->precFilter, primme, blockSize == 0);
+      tune_filter(&driver->precFilter, primme, blockSize == 0, 0);
    Apply_filter(x, y, blockSize, &driver->precFilter, primme, 1);
    if (primme->printLevel >= 5 && blockSize) plot_filter(1000, &driver->precFilter, primme, stderr);
    if (blockSize) primme->stats.numPreconds -= *blockSize;
@@ -1150,6 +1132,7 @@ static void setFilters(driver_params *driver, primme_params *primme) {
    if (driver->AFilter.filter) {
       primme->matrixMatvec = Apply_A_filter;
       driver->AFilter.prodIfFullRange = 1;
+      primme->matrixMatvec(NULL, NULL, NULL, primme);
    }
    if (driver->orthoFilter.filter) {
       primme->applyOrtho = Apply_ortho_filter;
@@ -1169,4 +1152,196 @@ static void setFilters(driver_params *driver, primme_params *primme) {
          Setup_filter_augmented(&driver->AFilter, primme);
          break;
    }
+}
+
+static void unsetFilters(double *evals, PRIMME_NUM *evecs, double *rnorms, primme_params *primme) {
+   driver_params *driver = (driver_params*)primme;
+
+   if (driver->AFilter.filter > 0 && driver->AFilter.filter != 13) {
+      /* Fix evalues and rnorms */
+      PRIMME_NUM *Ax, *r;
+      int one = 1, i,j;
+      Ax = (PRIMME_NUM *)primme_calloc(primme->nLocal*2, sizeof(PRIMME_NUM), "Ax");
+      r = Ax + primme->nLocal;
+      for (i=0; i<primme->initSize; i++) {
+         driver->AFilter.matvec(&evecs[primme->nLocal*i], Ax, &one, primme);
+         evals[i] = REAL_PART(primme_dot(&evecs[primme->nLocal*i], Ax, primme));
+         for (j=0; j<primme->nLocal; j++) r[j] = Ax[j] - evals[i]*evecs[primme->nLocal*i+j];
+         rnorms[i] = sqrt(REAL_PART(primme_dot(r, r, primme)));
+      }
+      free(Ax);
+
+      primme->matrixMatvec(evecs, NULL, NULL, primme);
+      primme->matrixMatvec = driver->AFilter.matvec;
+   }
+   if (driver->precFilter.filter) {
+      primme->applyPreconditioner = driver->precFilter.precond;
+   }
+
+}
+
+
+static int primmew(double *evals, PRIMME_NUM *evecs, double *rnorms, primme_params *primme) {
+   primme_stats stats0 = (primme_stats){0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+   int i, numOrthoConst0, nconv, minRestartSize, ret;
+   driver_params *driver = (driver_params*)primme;
+   int master = 1, procID = 0;
+
+#ifdef USE_MPI
+   MPI_Comm comm;
+   int numProcs;
+   MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
+   MPI_Comm_rank(MPI_COMM_WORLD, &procID);
+
+   comm = MPI_COMM_WORLD;
+   master = (procID == 0);
+#endif
+
+
+   numOrthoConst0 = primme->numOrthoConst;
+   minRestartSize = primme->minRestartSize;
+   nconv = 0;
+   setFilters(driver, primme);
+   while(1) {
+      primme_display_params(*primme);
+
+      ret = PREFIX(primme)(evals+primme->numOrthoConst-numOrthoConst0, COMPLEXZ(evecs),
+                           rnorms+primme->numOrthoConst-numOrthoConst0, primme);
+      ADD_STATS(stats0, primme->stats);
+      nconv += primme->initSize;
+      //primme->numEvals -= primme->initSize;
+      if (primme->maxMatvecs != -1) break;
+      primme->maxMatvecs = 0;
+      //primme->numOrthoConst += primme->initSize;
+      //primme->initSize = primme->minRestartSize;
+      primme->initSize = primme->minRestartSize+primme->initSize;
+      primme->minRestartSize = minRestartSize;
+   }
+   primme->stats = stats0;
+   //primme->initSize = nconv;
+   //primme->numEvals += nconv;
+
+   unsetFilters(evals, evecs, rnorms, primme);
+
+   return ret;
+}
+
+
+static int spectrum_slicing(double *evals, PRIMME_NUM *evecs, double *rnorms, primme_params *primme,
+                            int maxNumEvals, int *perm) {
+   driver_params *driver = (driver_params*)primme, driver0 = *driver;
+   primme_params *primme0 = &driver0.primme;
+   double norm, lastMinEig=HUGE_VAL, lastMaxEig=-HUGE_VAL, bounds[2], queue[200];
+   int i, j, k, l, sliceNum, qtop=-100, numEvals, ret;
+
+   assert(primme->numBounds == 2 && primme->target == primme_closest_abs && primme->bounds[0] < primme->bounds[1]);
+
+   bounds[0] = primme->bounds[0];
+   bounds[1] = primme->bounds[1];
+   primme->stats = (primme_stats){0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+   for (i=0; i<primme->numEvals; i++) perm[i] = i;
+
+   for(numEvals=sliceNum=0; numEvals < primme->numEvals; sliceNum++ ) {
+      /* Set filter for this slice */
+      if (!slice_tree(&bounds[0], &bounds[1], lastMinEig, lastMaxEig, queue, 200, &qtop)) {
+         fprintf(primme->outputFile,"All range has been visited!\n");
+         break;
+      }
+      primme0->numBounds = 2;
+      primme0->bounds = bounds;
+
+      primme0->numEvals = min(maxNumEvals, primme->numEvals - numEvals);
+      primme0->initSize = 0;
+      ret = primmew(&evals[numEvals], &evecs[primme->nLocal*numEvals], &rnorms[numEvals], primme0);
+      ADD_STATS(primme->stats, primme0->stats);
+
+      /* Store new eigenpairs */
+      lastMinEig=HUGE_VAL, lastMaxEig=-HUGE_VAL;
+      for (i=j=numEvals; i<numEvals+primme0->initSize; i++) {
+         lastMinEig = min(lastMinEig, evals[i]);
+         lastMaxEig = max(lastMaxEig, evals[i]);
+         for (k=l=0; k<j; k++) {
+            if (evals[perm[k]] < evals[i]) l = k+1;
+            if (fabs(evals[k]-evals[i]) > rnorms[i]+rnorms[k]) continue;
+            norm = REAL_PART(primme_dot(&evecs[primme->nLocal*i], &evecs[primme->nLocal*k], primme));
+            if (fabs(norm) < max(rnorms[i],rnorms[k])) continue;
+            if (lastMinEig == evals[i]) lastMinEig = evals[k];
+            if (lastMaxEig == evals[i]) lastMaxEig = evals[k];
+            break;
+         }
+         if (k >= j) {
+            if (j != i) primme_copy(primme->nLocal, &evecs[primme->nLocal*i], &evecs[primme->nLocal*j]);
+            evals[j] = evals[i];
+            assert(perm[j] == j);
+            for (k=j; k>l; k--) perm[k] = perm[k-1];
+            perm[l] = j;
+            j++;
+         }
+         else if (primme->printLevel >= 4) {
+            printf("warning: discarded %g\n", evals[i]);
+         }
+      }
+      /* Finding less eigenvalues than numEvals means there is not more eigenvalues inside the bounds */
+      if (primme0->numEvals > primme0->initSize) lastMinEig=-HUGE_VAL, lastMaxEig=HUGE_VAL;
+
+      if (primme->printLevel >= 4) 
+         printf("SLICERES: %d numEvals %d from %g to %g discard %d\n", sliceNum, primme->initSize, lastMinEig, lastMaxEig, primme->initSize+numEvals-j);
+      numEvals = j;
+      for (i=0; i<numEvals-1; i++) assert(evals[perm[i]] <= evals[perm[i+1]]);
+      primme->initSize = numEvals;
+
+      if (ret != 0 && ret != -3 && ret > -100) {
+         fprintf(primme->outputFile, 
+                 "Error: dprimme returned with nonzero exit status %d\n", ret);
+         return ret;
+      }
+   }
+
+   return ret;
+}
+
+/* Tree Slice Strategy                                                         */
+/* Slice are taken recursively: first, center; then left and right gaps.       */
+static int slice_tree(double *lb, double *ub, double lastMinEig, double lastMaxEig, double *queue, int lqueue, int *qtop) {
+
+   /* Initial case */
+   if (*qtop <= -100) {
+      *qtop = 0;
+      queue[0] = *lb;
+      queue[1] = *ub;
+   }
+
+   /* Regular case */
+   else {
+      const double c = *lb + *ub,
+                     qtopLeft = queue[*qtop], qtopRight = queue[*qtop+1];
+      int i;
+      /* Generate right gap */
+      if (qtopRight > lastMaxEig) {
+         const double c0 = fabs(qtopRight + lastMaxEig - c);
+         for (i=*qtop; i>1 && fabs(queue[i-2]+queue[i-1]-c)<c0; i-=2)
+            queue[i] = queue[i-2], queue[i+1] = queue[i-1];
+         queue[i] = lastMaxEig;
+         queue[i+1] = qtopRight;
+         *qtop += 2;
+      }
+      /* Generate left gap */
+      if (qtopLeft < lastMinEig) {
+         const double c0 = fabs(qtopLeft + lastMinEig - c);
+         for (i=*qtop; i>1 && fabs(queue[i-2]+queue[i-1]-c)<c0; i-=2)
+            queue[i] = queue[i-2], queue[i+1] = queue[i-1];
+         queue[i] = qtopLeft;
+         queue[i+1] = lastMinEig;
+         *qtop += 2;
+      }
+      *qtop -= 2;
+   }
+   assert(*qtop < lqueue && *qtop%2 == 0);
+
+   /* End case */
+   if (*qtop < 0) return 0;
+
+   *lb = queue[*qtop];
+   *ub = queue[*qtop+1];
+   return 1;
 }

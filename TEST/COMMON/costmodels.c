@@ -68,7 +68,7 @@ int reconsider_degree_filter(filter_params *filter, primme_params *primme, doubl
       //reset = 1;
    }
    //assert(prevResidual > 0 && 1/prevResidual > 0);
-   if (currTime - prevTime > 1 && currRes == primme->stats.currentEigResidual && eigFirstRes != 1 && primme->stats.numRestarts > 1 && prevResidual != 0 && (logCurrRes <= prevResidual-log(100.0) || prevIt + decIts < primme->stats.numOuterIterations)) {
+   if ((currTime - prevTime > 1 || fabs(logCurrRes-prevResidual) > 200) && currRes == primme->stats.currentEigResidual && eigFirstRes != 1 && primme->stats.numRestarts > 1 && prevResidual != 0 && (logCurrRes <= prevResidual-log(100.0) || prevIt + decIts < primme->stats.numOuterIterations)) {
       /* Enough time/iterations/residual has passed */
       double diffRes = logCurrRes-prevResidual;
       if (diffRes >= 0) {
@@ -84,7 +84,7 @@ int reconsider_degree_filter(filter_params *filter, primme_params *primme, doubl
          assert(currRes > 0);
          newDegrees = model_conv_one(prevDegree, primme->stats.numOuterIterations-prevIt,
                         diffRes,
-                        primme->eps*primme->aNorm/eigFirstRes,
+                        min(primme->eps*primme->aNorm/eigFirstRes, 1),
                         primme->numEvals-primme->initSize, costModel, primme);
          if (newDegrees <= 1) newDegrees = prevDegree;
          if (newDegrees != prevDegree) reset = 1;
@@ -93,7 +93,7 @@ int reconsider_degree_filter(filter_params *filter, primme_params *primme, doubl
    } else {
       newDegrees = max(2, prevDegree);
    }
-   if (reset || primme->stats.numOuterIterations-prevIt > (primme->maxBasisSize-primme->minRestartSize-primme->restartingParams.maxPrevRetain)*5) {
+   if (reset || fabs(logCurrRes-prevResidual) > 200 /* avoid overflow in model_conv */) {
       prevEigFirstIt = primme->stats.currentEigFirstIteration;
       prevTime = currTime;
       prevIt = primme->stats.numOuterIterations;
@@ -128,7 +128,7 @@ int model_conv_one(int d0, int its0, double logRes0, double tol, int n, double (
       if (t < minModel) { minModel = t; minDegree = degree; j = 0; itsW=its; }
    }
    printf("MODEL ... nD:%d nIts:%d s:%e d0:%d its0:%d tol:%e res0:%e n:%d\n", minDegree,itsW,currModel/minModel, d0, its0, tol, logRes0, n);
-   return currModel/minModel >= 1.5 ? minDegree : d0;
+   return currModel/minModel >= 1.1 ? minDegree : d0;
 }
 
 
