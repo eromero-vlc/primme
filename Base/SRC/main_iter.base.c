@@ -248,6 +248,9 @@ int main_iter_@(pre)primme(double *evals, int *perm, @(type) *evecs,
    for (i=0; i < primme->maxBlockSize; i++) {
       iev[i] = i;
    }
+   for (i=0; i < primme->numEvals; i++) {
+      perm[i] = i;
+   }
 
    /* ---------------------------------------- */
    /* Set the tolerance for the residual norms */
@@ -343,7 +346,7 @@ int main_iter_@(pre)primme(double *evals, int *perm, @(type) *evecs,
       /* Begin the iterative process.  Keep restarting until all of the */
       /* required eigenpairs have been found (no verification)          */
       /* -------------------------------------------------------------- */
-      while (numConverged < primme->numEvals &&
+      while (!converged && numConverged < primme->numEvals &&
              ( primme->maxMatvecs == 0 || 
                primme->stats.numMatvecs < primme->maxMatvecs ) &&
              ( primme->maxOuterIterations == 0 ||
@@ -355,7 +358,7 @@ int main_iter_@(pre)primme(double *evals, int *perm, @(type) *evecs,
          /* maximum size or the basis plus the locked vectors span the entire */
          /* space. Once this happens, restart with a smaller basis.           */
          /* ----------------------------------------------------------------- */
-         while (basisSize < primme->maxBasisSize &&
+         while (!converged && basisSize < primme->maxBasisSize &&
                 basisSize < primme->n - primme->numOrthoConst - numLocked &&
                 ( primme->maxMatvecs == 0 || 
                   primme->stats.numMatvecs < primme->maxMatvecs) &&
@@ -606,7 +609,7 @@ int main_iter_@(pre)primme(double *evals, int *perm, @(type) *evecs,
          /* If all of the target eigenvalues have been computed, */
          /* then return success, else return with a failure.     */
  
-         if (numConverged == primme->numEvals) {
+         if (numConverged == primme->numEvals || converged) {
             if (primme->aNorm <= 0.0L) primme->aNorm = largestRitzValue;
             return 0;
          }
