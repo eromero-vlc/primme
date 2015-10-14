@@ -1007,7 +1007,7 @@ static int level_filter_bounds(filter_params *filter, primme_params *primme) {
    *z = max(filter->minEig, min(filter->maxEig, *z)); 
    if (y[1] < y[0]) return 0;
    z1 = *z;
-   while (fabs(y[1]-y[0])/fabs(y[1]+y[0])*2>.1) {
+   for (i=0; i<100 && fabs(y[1]-y[0])/fabs(y[1]+y[0])*2>.1; i++) {
       *z = (z1 + z0)/2.;
       eval_filter(x, y, 2, filter, primme);
       if (y[1] >= y[0]) z1 = *z;

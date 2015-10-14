@@ -476,6 +476,8 @@ static void broadCast(primme_params *primme, primme_preset_method *method,
    MPI_Bcast(&driver->threshold, 1, MPI_DOUBLE, 0, comm);
    MPI_Bcast(&driver->filter, 1, MPI_DOUBLE, 0, comm);
    MPI_Bcast(&driver->shift, 1, MPI_DOUBLE, 0, comm);
+   MPI_Bcast(&driver->minEig, 1, MPI_DOUBLE, 0, comm);
+   MPI_Bcast(&driver->maxEig, 1, MPI_DOUBLE, 0, comm);
 
    MPI_Bcast(&driver->AFilter.filter, 1, MPI_INT, 0, comm);
    MPI_Bcast(&driver->AFilter.degrees, 1, MPI_INT, 0, comm);
@@ -483,12 +485,14 @@ static void broadCast(primme_params *primme, primme_preset_method *method,
    MPI_Bcast(&driver->AFilter.upperBound, 1, MPI_INT, 0, comm);
    MPI_Bcast(&driver->AFilter.lowerBoundFix, 1, MPI_DOUBLE, 0, comm);
    MPI_Bcast(&driver->AFilter.upperBoundFix, 1, MPI_DOUBLE, 0, comm);
+   MPI_Bcast(&driver->AFilter.checkEps, 1, MPI_DOUBLE, 0, comm);
    MPI_Bcast(&driver->precFilter.filter, 1, MPI_INT, 0, comm);
    MPI_Bcast(&driver->precFilter.degrees, 1, MPI_INT, 0, comm);
    MPI_Bcast(&driver->precFilter.lowerBound, 1, MPI_INT, 0, comm);
    MPI_Bcast(&driver->precFilter.upperBound, 1, MPI_INT, 0, comm);
    MPI_Bcast(&driver->precFilter.lowerBoundFix, 1, MPI_DOUBLE, 0, comm);
    MPI_Bcast(&driver->precFilter.upperBoundFix, 1, MPI_DOUBLE, 0, comm);
+   MPI_Bcast(&driver->precFilter.checkEps, 1, MPI_DOUBLE, 0, comm);
    MPI_Bcast(&driver->orthoFilter.filter, 1, MPI_INT, 0, comm);
    MPI_Bcast(&driver->orthoFilter.degrees, 1, MPI_INT, 0, comm);
    MPI_Bcast(&driver->orthoFilter.lowerBound, 1, MPI_INT, 0, comm);
@@ -507,6 +511,15 @@ static void broadCast(primme_params *primme, primme_preset_method *method,
    for (i=0; i<primme->numTargetShifts; i++) {
       MPI_Bcast(&(primme->targetShifts[i]), 1, MPI_DOUBLE, 0, comm);
    }
+   MPI_Bcast(&(primme->numBounds), 1, MPI_INT, 0, comm);
+
+   if (primme->numBounds > 0 && !master) {
+      primme->bounds = (double *)primme_calloc(
+         primme->numBounds, sizeof(double), "bounds");
+   }
+   for (i=0; i<primme->numBounds; i++) {
+      MPI_Bcast(&(primme->bounds[i]), 1, MPI_DOUBLE, 0, comm);
+   }
    MPI_Bcast(&(primme->locking), 1, MPI_INT, 0, comm);
    MPI_Bcast(&(primme->dynamicMethodSwitch), 1, MPI_INT, 0, comm);
    MPI_Bcast(&(primme->initSize), 1, MPI_INT, 0, comm);
@@ -522,6 +535,7 @@ static void broadCast(primme_params *primme, primme_preset_method *method,
 
    MPI_Bcast(&(primme->restartingParams.scheme), 1, MPI_INT, 0, comm);
    MPI_Bcast(&(primme->restartingParams.maxPrevRetain), 1, MPI_INT, 0, comm);
+   MPI_Bcast(&(primme->applyPrecondTo), 1, MPI_INT, 0, comm);
 
    MPI_Bcast(&(primme->correctionParams.precondition), 1, MPI_INT, 0, comm);
    MPI_Bcast(&(primme->correctionParams.robustShifts), 1, MPI_INT, 0, comm);
@@ -1203,7 +1217,7 @@ static int primmew(double *evals, PRIMME_NUM *evecs, double *rnorms, primme_para
    nconv = 0;
    setFilters(driver, primme);
    while(1) {
-      primme_display_params(*primme);
+      if (master) primme_display_params(*primme);
 
       ret = PREFIX(primme)(evals+primme->numOrthoConst-numOrthoConst0, COMPLEXZ(evecs),
                            rnorms+primme->numOrthoConst-numOrthoConst0, primme);
@@ -1260,6 +1274,7 @@ static int spectrum_slicing(double *evals, PRIMME_NUM *evecs, double *rnorms, pr
       for (i=j=numEvals; i<numEvals+primme0->initSize; i++) {
          lastMinEig = min(lastMinEig, evals[i]);
          lastMaxEig = max(lastMaxEig, evals[i]);
+         if (driver->minEig > evals[i]+rnorms[i] || evals[i]-rnorms[i] > driver->maxEig) continue;
          for (k=l=0; k<j; k++) {
             if (evals[perm[k]] < evals[i]) l = k+1;
             if (fabs(evals[k]-evals[i]) > rnorms[i]+rnorms[k]) continue;
@@ -1281,11 +1296,11 @@ static int spectrum_slicing(double *evals, PRIMME_NUM *evecs, double *rnorms, pr
             printf("warning: discarded %g\n", evals[i]);
          }
       }
-      /* Finding less eigenvalues than numEvals means there is not more eigenvalues inside the bounds */
-      if (primme0->numEvals > primme0->initSize) lastMinEig=-HUGE_VAL, lastMaxEig=HUGE_VAL;
+      /* None eigenvalue found means there is not more eigenvalues inside the bounds */
+      if (j == numEvals) lastMinEig=-HUGE_VAL, lastMaxEig=HUGE_VAL;
 
       if (primme->printLevel >= 4) 
-         printf("SLICERES: %d numEvals %d from %g to %g discard %d\n", sliceNum, primme->initSize, lastMinEig, lastMaxEig, primme->initSize+numEvals-j);
+         printf("SLICERES: %d numEvals %d from %g to %g discard %d\n", sliceNum, primme0->initSize, lastMinEig, lastMaxEig, primme0->initSize+numEvals-j);
       numEvals = j;
       for (i=0; i<numEvals-1; i++) assert(evals[perm[i]] <= evals[perm[i+1]]);
       primme->initSize = numEvals;

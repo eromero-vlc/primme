@@ -128,7 +128,7 @@ int model_conv_one(int d0, int its0, double logRes0, double tol, int n, double (
       if (t < minModel) { minModel = t; minDegree = degree; j = 0; itsW=its; }
    }
    printf("MODEL ... nD:%d nIts:%d s:%e d0:%d its0:%d tol:%e res0:%e n:%d\n", minDegree,itsW,currModel/minModel, d0, its0, tol, logRes0, n);
-   return currModel/minModel >= 1.1 ? minDegree : d0;
+   return currModel/minModel >= 1.25 ? minDegree : d0;
 }
 
 
@@ -139,7 +139,7 @@ double timeCostModelA(int degrees, int its, int init, int n, void *ctx) {
           avgCols = primme->initSize + primme->numOrthoConst + (primme->maxBasisSize + primme->minRestartSize + primme->restartingParams.maxPrevRetain)/2.,
           solveH = primme->stats.elapsedTimeSolveH/primme->stats.numOuterIterations,
           rest = (primme_wTimer(0) - primme->stats.elapsedTimeMatvec - primme->stats.elapsedTimeOrtho - primme->stats.elapsedTimePrecond - primme->stats.elapsedTimeSolveH)/primme->stats.numOuterIterations;
-   int k = max(primme->minRestartSize, primme->initSize);
+   int k = primme->minRestartSize+primme->initSize;
 
    assert(rest > 0);
    return degrees*mv*its*n + ortho*(avgCols+(n-1)/2.)*its*n + rest*its*n + solveH*its*n
