@@ -71,6 +71,7 @@ void CSRMatrixMatvec(void *x, void *y, int *blockSize, primme_params *primme) {
    PRIMME_NUM *xvec, *yvec;
    CSRMatrix *matrix;
    
+   if (!x || !y || !blockSize) return;
    matrix = (CSRMatrix *)primme->matrix;
    xvec = (PRIMME_NUM *)x;
    yvec = (PRIMME_NUM *)y;

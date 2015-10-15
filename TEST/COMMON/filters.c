@@ -30,6 +30,7 @@
 #include <math.h>
 #include <assert.h>
 #include "../../PRIMMESRC/DSRC/numerical_d.h"
+#include "shared_utils.h"
 
 #ifndef M_PI
 #  define M_PI 3.14159265358979323846
@@ -62,8 +63,10 @@ static void Apply_filter_filtlan(void *x, void *y, int *blockSize, filter_params
 static void Apply_filter_feast(void *x, void *y, int *blockSize, filter_params *filter,
                                primme_params *primme, int stats);
 #endif
-void Apply_filter_augmented(void *x, void *y, int *blockSize, filter_params *filter,
+static void Apply_filter_augmented(void *x, void *y, int *blockSize, filter_params *filter,
                             primme_params *primme, int stats);
+static void Apply_filter_normalequation(void *x, void *y, int *blockSize, filter_params *filter,
+                                 primme_params *primme, int stats);
 static int check_filter(double a, int d0, int d1, int setBounds, filter_params *filter, primme_params *primme);
 
 double elapsedTimeAMV, elapsedTimeFilterMV;
@@ -145,6 +148,9 @@ void Apply_filter(void *x, void *y, int *blockSize, filter_params *filter,
 #endif /* FEAST */
       case 13:
          Apply_filter_augmented(x, y, blockSize, filter, primme, stats);
+         break;
+      case 14:
+         Apply_filter_normalequation(x, y, blockSize, filter, primme, stats);
          break;
        default:
          fprintf(stderr, "ERROR(Apply_filter): Invalid filter '%d'\n", filter->filter);
@@ -873,18 +879,34 @@ static void Apply_filter_feast(void *x, void *y, int *blockSize, filter_params *
 }
 #endif /* USE_FEAST */
 
-void Setup_filter_augmented(filter_params *filter, primme_params *primme) {
 
-   primme->nLocal *= 2;
-   primme->n *= 2;
-}
-
-
-void Apply_filter_augmented(void *x, void *y, int *blockSize, filter_params *filter,
-                            primme_params *primme, int stats) {
+static void Apply_filter_augmented(void *x, void *y, int *blockSize, filter_params *filter,
+                                   primme_params *primme, int stats) {
 
    int j,nLocal=primme->nLocal,n=primme->n,one=1;
    PRIMME_NUM *xvec, *yvec;
+   driver_params *driver = (driver_params*)primme;
+   double maxSval;
+
+   /* Setup */
+   if (!blockSize && !x && !y) {
+      primme->nLocal *= 2;
+      primme->n *= 2;
+      filter->lowerBoundFix = driver->minEig;
+      filter->upperBoundFix = driver->maxEig;
+      maxSval = max(fabs(driver->maxEig), fabs(driver->minEig));
+      driver->minEig = -maxSval;
+      driver->maxEig = maxSval;
+      return;
+   }
+   /* Un-setup */
+   if (!blockSize && x && !y) {
+      driver->minEig = filter->lowerBoundFix;
+      driver->maxEig = filter->upperBoundFix;
+      primme->nLocal /= 2;
+      primme->n /= 2;
+      return;
+   }
 
    xvec = (PRIMME_NUM *)x;
    yvec = (PRIMME_NUM *)y;
@@ -897,6 +919,43 @@ void Apply_filter_augmented(void *x, void *y, int *blockSize, filter_params *fil
    }
    primme->nLocal = nLocal;
    primme->n = n;
+
+   if (stats) primme->stats.numMatvecs -= *blockSize; /* Removed the assumed blockSize MV prods */
+   if (stats) primme->stats.numMatvecs += *blockSize * 2;
+}
+
+static void Apply_filter_normalequation(void *x, void *y, int *blockSize, filter_params *filter,
+                                        primme_params *primme, int stats) {
+
+   PRIMME_NUM *aux;
+   driver_params *driver = (driver_params*)primme;
+   double shift;
+
+   /* Setup */
+   if (!blockSize && !x && !y) {
+      filter->matvec(x, y, blockSize, primme);
+      filter->lowerBoundTuned = driver->minEig;
+      filter->upperBoundTuned = driver->maxEig;
+      shift = (filter->lowerBoundFix + filter->upperBoundFix)/2.;
+      driver->maxEig = max((filter->lowerBoundTuned-shift)*(filter->lowerBoundTuned-shift), (filter->upperBoundTuned-shift)*(filter->upperBoundTuned-shift));
+      if (filter->lowerBoundTuned <= shift && filter->upperBoundTuned >= shift) driver->minEig = 0;
+      else driver->minEig = min((filter->lowerBoundTuned-shift)*(filter->lowerBoundTuned-shift), (filter->upperBoundTuned-shift)*(filter->upperBoundTuned-shift));
+      return;
+   }
+   /* Un-setup */
+   if (!blockSize && x && !y) {
+      driver->minEig = filter->lowerBoundTuned;
+      driver->maxEig = filter->upperBoundTuned;
+      filter->matvec(x, y, blockSize, primme);
+      return;
+   }
+
+   aux = (PRIMME_NUM *)primme_calloc(*blockSize*primme->nLocal, sizeof(PRIMME_NUM), "aux");
+   filter->matvec(x, aux, blockSize, primme);
+   filter->matvec(aux, y, blockSize, primme);
+   free(aux);
+
+   if (stats) primme->stats.numMatvecs -= *blockSize; /* Removed the assumed blockSize MV prods */
    if (stats) primme->stats.numMatvecs += *blockSize * 2;
 }
 
@@ -1022,7 +1081,7 @@ static int level_filter_bounds(filter_params *filter, primme_params *primme) {
 */
 static double check_filter_split(double *x, double *y, int n, filter_params *filter, primme_params *primme, int setBounds) {
    int i, iMaxIn, offended=0;
-   double fb, maxIn, maxInD, maxOutD, maxOut, lb, ub;
+   double fb, maxIn, maxInD, maxOutD, lb, ub;
 
    getBounds(filter, primme, &lb, &ub);
    assert(n > 2 && x[0] == lb && x[1] == ub);

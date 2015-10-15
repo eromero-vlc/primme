@@ -47,7 +47,6 @@ typedef struct filter_params {
 void Apply_filter(void *x, void *y, int *blockSize, filter_params *filter,
                   primme_params *primme, int stats);
 void plot_filter(int n, filter_params *filter, primme_params *primme, FILE *out);
-void Setup_filter_augmented(filter_params *filter, primme_params *primme);
 int tune_filter(filter_params *filter, primme_params *primme, int onlyIfStatic, int setBounds);
 void getBounds(filter_params *filter, primme_params *primme, double *lb, double *ub);
 void getBoundsTuned(filter_params *filter, primme_params *primme, double *lb, double *ub);

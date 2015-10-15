@@ -561,7 +561,16 @@ int read_driver_params(char *configFileName, driver_params *driver) {
          else if (strcmp(ident, "driver.AFilterCheckEps") == 0) {
             ret = fscanf(configFile, "%lf", &driver->AFilter.checkEps);
          }
-         else if (strcmp(ident, "driver.OrthoFilter") == 0) {
+         else if (strcmp(ident, "driver.Transform") == 0) {
+            ret = fscanf(configFile, "%d", &driver->transform.filter);
+         }
+         else if (strcmp(ident, "driver.TransformLBFix") == 0) {
+            ret = fscanf(configFile, "%lf", &driver->transform.lowerBoundFix);
+         }
+         else if (strcmp(ident, "driver.TransformUBFix") == 0) {
+            ret = fscanf(configFile, "%lf", &driver->transform.upperBoundFix);
+         }
+          else if (strcmp(ident, "driver.OrthoFilter") == 0) {
             ret = fscanf(configFile, "%d", &driver->orthoFilter.filter);
          }
          else if (strcmp(ident, "driver.OrthoFilterDegrees") == 0) {
@@ -623,7 +632,8 @@ char *helpFilter[] = {"no filter",
                       "Chebyshev delta sigma-Lanczos damping",
                       "Chebyshev based on (A-shift I)^2",
                       "FEAST",
-                      "Augmented matrix [0 A';A 0]"};
+                      "Augmented matrix [0 A';A 0]",
+                      "Normal equation (A - shift*I)^2"};
 char *helpBoundFilter[] = {"extreme eigenvalue",
                            "last converged",
                            "last frozen",
@@ -656,6 +666,11 @@ fprintf(outputFile, "driver.threshold     = %f\n", driver.threshold);
 fprintf(outputFile, "driver.filter        = %f\n\n", driver.filter);
 fprintf(outputFile, "driver.minEig        = %lf\n", driver.minEig);
 fprintf(outputFile, "driver.maxEig        = %lf\n\n", driver.maxEig);
+
+fprintf(outputFile, "driver.Transform          = %d   // %s\n", driver.transform.filter,
+         helpFilter[driver.transform.filter]);
+fprintf(outputFile, "driver.TransformLBFix     = %lf\n", driver.transform.lowerBoundFix);
+fprintf(outputFile, "driver.TransformUBFix     = %lf\n", driver.transform.upperBoundFix);
 
 fprintf(outputFile, "driver.PrecFilter            = %d   // %s\n", driver.precFilter.filter,
          helpFilter[driver.precFilter.filter]);

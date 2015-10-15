@@ -112,6 +112,7 @@ static int primmew(double *evals, PRIMME_NUM *evecs, double *rnorms, primme_para
 static int spectrum_slicing(double *evals, PRIMME_NUM *evecs, double *rnorms, primme_params *primme,
                             int maxNumEvals, int *perm);
 static int slice_tree(double *lb, double *ub, double lastMinEig, double lastMaxEig, double *queue, int lqueue, int *qtop);
+static void Apply_transform_filter(void *x, void *y, int *blockSize, primme_params *primme);
 
 
 int main (int argc, char *argv[]) {
@@ -715,6 +716,13 @@ static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int
    primme->globalSumDouble = par_GlobalSumDouble;
 #endif
 
+   /* Setup transform */
+   if (driver->transform.filter) {
+      driver->transform.matvec = primme->matrixMatvec;
+      primme->matrixMatvec = Apply_transform_filter;
+      primme->matrixMatvec(NULL, NULL, NULL, primme);
+   }
+
    /* Build precond based on shift */
    if (driver->PrecChoice != driver_noprecond && driver->PrecChoice != driver_filter) {
       primme->rebuildPreconditioner = 1;
@@ -822,7 +830,7 @@ static void par_GlobalSumDouble(void *sendBuf, void *recvBuf, int *count,
 static int check_solution(const char *checkXFileName, primme_params *primme, double *evals,
                    PRIMME_NUM *evecs, double *rnorms, int *perm) {
 
-   double eval0, rnorm0, prod, auxd;
+   double eval0, rnorm0, prod;
    PRIMME_NUM *Ax, *r, *X=NULL, *h, *h0;
    int i, j, cols, retX=0, one=1;
    primme_params primme0;
@@ -1051,20 +1059,27 @@ static void Apply_A_filter(void *x, void *y, int *blockSize,
    static int iwork[4], newDegrees;
    static double work[4];
    static filter_params filter0 = {-10,0};
+   static primme_target target;
 
    /* Save a copy of the original filter parameters */
    if (!blockSize && !x && !y) {
       filter0 = driver->AFilter;
       filter0.lowerBound = driver->AFilter.upperBound = 8; /* set fixed bounds */
-      filter0.lowerBoundFix = primme->bounds[0];
-      filter0.upperBoundFix = primme->bounds[1];
+      if (primme->numBounds) {
+         filter0.lowerBoundFix = primme->bounds[0];
+         filter0.upperBoundFix = primme->bounds[1];
+      }
       newDegrees = filter0.degrees;
+      target = primme->target;
       primme->target = primme_largest;
    }
    /* Restore original primme params */
    if (!blockSize && x && !y) {
-      primme->bounds[0] = filter0.lowerBoundFix;
-      primme->bounds[1] = filter0.upperBoundFix;
+      if (primme->numBounds) {
+         primme->bounds[0] = filter0.lowerBoundFix;
+         primme->bounds[1] = filter0.upperBoundFix;
+      }
+      primme->target = target;
       return;
    }
    assert(filter0.filter != -10);
@@ -1088,7 +1103,7 @@ static void Apply_A_filter(void *x, void *y, int *blockSize,
       }
    }
    if (filter0.degrees > 0)
-      if (tune_filter(&filter0, primme, blockSize == 0, 1))
+      if (tune_filter(&filter0, primme, blockSize == 0, primme->numBounds>0))
          oldDegrees = newDegrees = filter0.degrees;
    Apply_filter(x, y, blockSize, &filter0, primme, 1);
    if (primme->printLevel >= 5 && blockSize) plot_filter(1000, &filter0, primme, stderr);
@@ -1137,6 +1152,16 @@ static void Apply_ortho_filter(void *x, void *y, int *blockSize,
 
 }
 
+static void Apply_transform_filter(void *x, void *y, int *blockSize,
+                  primme_params *primme) {
+
+   driver_params *driver = (driver_params*)primme;
+   Apply_filter(x, y, blockSize, &driver->transform, primme, 1);
+   if (primme->printLevel >= 5 && blockSize) plot_filter(1000, &driver->transform, primme, stderr);
+
+}
+
+
 static void setFilters(driver_params *driver, primme_params *primme) {
 
    driver->AFilter.matvec = driver->orthoFilter.matvec = driver->precFilter.matvec = primme->matrixMatvec;
@@ -1161,11 +1186,6 @@ static void setFilters(driver_params *driver, primme_params *primme) {
    elapsedTimeAMV = elapsedTimeFilterMV = 0;
    numFilterApplies = 0;
 
-   switch(driver->AFilter.filter) {
-      case 13:
-         Setup_filter_augmented(&driver->AFilter, primme);
-         break;
-   }
 }
 
 static void unsetFilters(double *evals, PRIMME_NUM *evecs, double *rnorms, primme_params *primme) {
@@ -1197,17 +1217,13 @@ static void unsetFilters(double *evals, PRIMME_NUM *evecs, double *rnorms, primm
 
 static int primmew(double *evals, PRIMME_NUM *evecs, double *rnorms, primme_params *primme) {
    primme_stats stats0 = (primme_stats){0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-   int i, numOrthoConst0, nconv, minRestartSize, ret;
+   int numOrthoConst0, nconv, minRestartSize, ret;
    driver_params *driver = (driver_params*)primme;
-   int master = 1, procID = 0;
+   int master = 1;
 
 #ifdef USE_MPI
-   MPI_Comm comm;
-   int numProcs;
-   MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
+   int procID;
    MPI_Comm_rank(MPI_COMM_WORLD, &procID);
-
-   comm = MPI_COMM_WORLD;
    master = (procID == 0);
 #endif
 

@@ -290,6 +290,7 @@ void PETScMatvec(void *x, void *y, int *blockSize, primme_params *primme) {
    PetscErrorCode ierr;
 
    assert(sizeof(PetscScalar) == sizeof(PRIMME_NUM));   
+   if (!x || !y || !blockSize) return;
    matrix = (Mat *)primme->matrix;
 
    #if PETSC_VERSION_LT(3,6,0)

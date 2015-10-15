@@ -80,6 +80,7 @@ typedef struct driver_params {
    filter_params precFilter;
    filter_params AFilter;
    filter_params orthoFilter;
+   filter_params transform;
    
 } driver_params;
 
