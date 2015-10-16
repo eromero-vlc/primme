@@ -183,6 +183,7 @@ static int real_main (int argc, char *argv[]) {
    master = (procID == 0);
 #endif
 
+   memset(&driver, 0, sizeof(driver));
    primme_initialize(primme);
 
    if (master) {
@@ -479,6 +480,7 @@ static void broadCast(primme_params *primme, primme_preset_method *method,
    MPI_Bcast(&driver->shift, 1, MPI_DOUBLE, 0, comm);
    MPI_Bcast(&driver->minEig, 1, MPI_DOUBLE, 0, comm);
    MPI_Bcast(&driver->maxEig, 1, MPI_DOUBLE, 0, comm);
+   MPI_Bcast(&driver->maxLocked, 1, MPI_INT, 0, comm);
 
    MPI_Bcast(&driver->AFilter.filter, 1, MPI_INT, 0, comm);
    MPI_Bcast(&driver->AFilter.degrees, 1, MPI_INT, 0, comm);
@@ -500,6 +502,13 @@ static void broadCast(primme_params *primme, primme_preset_method *method,
    MPI_Bcast(&driver->orthoFilter.upperBound, 1, MPI_INT, 0, comm);
    MPI_Bcast(&driver->orthoFilter.lowerBoundFix, 1, MPI_DOUBLE, 0, comm);
    MPI_Bcast(&driver->orthoFilter.upperBoundFix, 1, MPI_DOUBLE, 0, comm);
+   MPI_Bcast(&driver->transform.filter, 1, MPI_INT, 0, comm);
+   MPI_Bcast(&driver->transform.degrees, 1, MPI_INT, 0, comm);
+   MPI_Bcast(&driver->transform.lowerBound, 1, MPI_INT, 0, comm);
+   MPI_Bcast(&driver->transform.upperBound, 1, MPI_INT, 0, comm);
+   MPI_Bcast(&driver->transform.lowerBoundFix, 1, MPI_DOUBLE, 0, comm);
+   MPI_Bcast(&driver->transform.upperBoundFix, 1, MPI_DOUBLE, 0, comm);
+   MPI_Bcast(&driver->transform.checkEps, 1, MPI_DOUBLE, 0, comm);
 
    MPI_Bcast(&(primme->numEvals), 1, MPI_INT, 0, comm);
    MPI_Bcast(&(primme->target), 1, MPI_INT, 0, comm);
