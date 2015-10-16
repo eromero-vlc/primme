@@ -405,7 +405,7 @@ int main_iter_@(pre)primme(double *evals, int *perm, @(type) *evecs,
             }
 
             /* If no eigenvalue in the search subspace is in bounds, break */
-            if (recentlyConverged > 0 && primme->numBounds > 0 && blockSize > 0) {
+            if (/*recentlyConverged > 0 &&*/ primme->numBounds > 0 && blockSize > 0) {
                for (i=0; i<blockSize; i++) {
                   if (check_evalue_inbounds(hVals[iev[i]], blockNorms[i], primme)) break;
                }

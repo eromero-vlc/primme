@@ -349,7 +349,7 @@ static int real_main (int argc, char *argv[]) {
       ret = primmew(evals, evecs, rnorms, primme);
    } else {
       eperm = (int *)primme_calloc(primme->numEvals, sizeof(int), "eperm");
-      ret = spectrum_slicing(evals, evecs, rnorms, primme, primme->numEvals, eperm);
+      ret = spectrum_slicing(evals, evecs, rnorms, primme, driver.maxLocked?driver.maxLocked:primme->numEvals, eperm);
    }
 
    wt2 = primme_get_wtime();
@@ -1240,7 +1240,7 @@ static int primmew(double *evals, PRIMME_NUM *evecs, double *rnorms, primme_para
       ADD_STATS(stats0, primme->stats);
       nconv += primme->initSize;
       //primme->numEvals -= primme->initSize;
-      if (primme->maxMatvecs != -1) break;
+      if (primme->maxMatvecs != -1 || primme->initSize >= primme->maxBasisSize) break;
       primme->maxMatvecs = 0;
       //primme->numOrthoConst += primme->initSize;
       //primme->initSize = primme->minRestartSize;
@@ -1261,7 +1261,7 @@ static int spectrum_slicing(double *evals, PRIMME_NUM *evecs, double *rnorms, pr
                             int maxNumEvals, int *perm) {
    driver_params *driver = (driver_params*)primme, driver0 = *driver;
    primme_params *primme0 = &driver0.primme;
-   double norm, lastMinEig=HUGE_VAL, lastMaxEig=-HUGE_VAL, bounds[2], queue[200];
+   double norm, lastMinEig=HUGE_VAL, lastMaxEig=-HUGE_VAL, bounds[2], queue[200], r;
    int i, j, k, l, sliceNum, qtop=-100, numEvals, ret;
 
    assert(primme->numBounds == 2 && primme->target == primme_closest_abs && primme->bounds[0] < primme->bounds[1]);
@@ -1270,6 +1270,7 @@ static int spectrum_slicing(double *evals, PRIMME_NUM *evecs, double *rnorms, pr
    bounds[1] = primme->bounds[1];
    primme->stats = (primme_stats){0,0,0,0,0,0,0,0,0,0,0,0,0,0};
    for (i=0; i<primme->numEvals; i++) perm[i] = i;
+   r = (bounds[1] - bounds[0])/primme->numEvals;
 
    for(numEvals=sliceNum=0; numEvals < primme->numEvals; sliceNum++ ) {
       /* Set filter for this slice */
@@ -1282,6 +1283,15 @@ static int spectrum_slicing(double *evals, PRIMME_NUM *evecs, double *rnorms, pr
 
       primme0->numEvals = min(maxNumEvals, primme->numEvals - numEvals);
       primme0->initSize = 0;
+      if (bounds[1] - bounds[0] > r*maxNumEvals) {
+         double d = r*maxNumEvals, c = (bounds[1] + bounds[0])/2;
+         bounds[0] = c - d/2;
+         bounds[1] = c + d/2;
+         
+      }
+      if (primme->numTargetShifts == 1) {
+         primme0->targetShifts[0] = (bounds[0] + bounds[1])/2.;
+      }
       ret = primmew(&evals[numEvals], &evecs[primme->nLocal*numEvals], &rnorms[numEvals], primme0);
       ADD_STATS(primme->stats, primme0->stats);
 
@@ -1290,7 +1300,7 @@ static int spectrum_slicing(double *evals, PRIMME_NUM *evecs, double *rnorms, pr
       for (i=j=numEvals; i<numEvals+primme0->initSize; i++) {
          lastMinEig = min(lastMinEig, evals[i]);
          lastMaxEig = max(lastMaxEig, evals[i]);
-         if (driver->minEig > evals[i]+rnorms[i] || evals[i]-rnorms[i] > driver->maxEig) continue;
+         if (primme->bounds[0] > evals[i]+rnorms[i] || evals[i]-rnorms[i] > primme->bounds[1]) continue;
          for (k=l=0; k<j; k++) {
             if (evals[perm[k]] < evals[i]) l = k+1;
             if (fabs(evals[k]-evals[i]) > rnorms[i]+rnorms[k]) continue;
@@ -1313,7 +1323,7 @@ static int spectrum_slicing(double *evals, PRIMME_NUM *evecs, double *rnorms, pr
          }
       }
       /* None eigenvalue found means there is not more eigenvalues inside the bounds */
-      if (j == numEvals) lastMinEig=-HUGE_VAL, lastMaxEig=HUGE_VAL;
+      if (j == numEvals) lastMinEig=bounds[0], lastMaxEig=bounds[1];
 
       if (primme->printLevel >= 4) 
          printf("SLICERES: %d numEvals %d from %g to %g discard %d\n", sliceNum, primme0->initSize, lastMinEig, lastMaxEig, primme0->initSize+numEvals-j);
@@ -1344,8 +1354,7 @@ static int slice_tree(double *lb, double *ub, double lastMinEig, double lastMaxE
 
    /* Regular case */
    else {
-      const double c = *lb + *ub,
-                     qtopLeft = queue[*qtop], qtopRight = queue[*qtop+1];
+      const double qtopLeft = queue[*qtop], qtopRight = queue[*qtop+1], c = qtopLeft+qtopRight;
       int i;
       /* Generate right gap */
       if (qtopRight > lastMaxEig) {

@@ -588,6 +588,9 @@ int read_driver_params(char *configFileName, driver_params *driver) {
          else if (strcmp(ident, "driver.OrthoFilterUBFix") == 0) {
             ret = fscanf(configFile, "%lf", &driver->orthoFilter.upperBoundFix);
          }
+         else if (strcmp(ident, "driver.maxLocked") == 0) {
+            ret = fscanf(configFile, "%d", &driver->maxLocked);
+         }
          else if (strncmp(ident, "driver.", 7) == 0) {
             fprintf(stderr, 
               "ERROR(read_driver_params): Invalid parameter '%s'\n", ident);
@@ -703,6 +706,7 @@ fprintf(outputFile, "driver.OrthoFilterUpperBound  = %d   // %s\n", driver.ortho
          helpBoundFilter[driver.orthoFilter.upperBound]);
 fprintf(outputFile, "driver.OrthoFilterLBFix       = %lf\n", driver.orthoFilter.lowerBoundFix);
 fprintf(outputFile, "driver.OrthoFilterUBFix       = %lf\n", driver.orthoFilter.upperBoundFix);
+fprintf(outputFile, "driver.maxLocked          = %d\n", driver.maxLocked);
 }
 
 void driver_display_method(primme_preset_method method, FILE *outputFile) {
