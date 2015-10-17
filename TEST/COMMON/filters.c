@@ -929,14 +929,14 @@ static void Apply_filter_normalequation(void *x, void *y, int *blockSize, filter
 
    PRIMME_NUM *aux;
    driver_params *driver = (driver_params*)primme;
-   double shift;
+   int i;
+   const double shift = (filter->lowerBoundFix + filter->upperBoundFix)/2.;
 
    /* Setup */
    if (!blockSize && !x && !y) {
       filter->matvec(x, y, blockSize, primme);
       filter->lowerBoundTuned = driver->minEig;
       filter->upperBoundTuned = driver->maxEig;
-      shift = (filter->lowerBoundFix + filter->upperBoundFix)/2.;
       driver->maxEig = max((filter->lowerBoundTuned-shift)*(filter->lowerBoundTuned-shift), (filter->upperBoundTuned-shift)*(filter->upperBoundTuned-shift));
       if (filter->lowerBoundTuned <= shift && filter->upperBoundTuned >= shift) driver->minEig = 0;
       else driver->minEig = min((filter->lowerBoundTuned-shift)*(filter->lowerBoundTuned-shift), (filter->upperBoundTuned-shift)*(filter->upperBoundTuned-shift));
@@ -952,7 +952,9 @@ static void Apply_filter_normalequation(void *x, void *y, int *blockSize, filter
 
    aux = (PRIMME_NUM *)primme_calloc(*blockSize*primme->nLocal, sizeof(PRIMME_NUM), "aux");
    filter->matvec(x, aux, blockSize, primme);
+   if (shift) for (i=0; i<primme->nLocal; i++) aux[i] -= shift*((PRIMME_NUM*)x)[i];
    filter->matvec(aux, y, blockSize, primme);
+   if (shift) for (i=0; i<primme->nLocal; i++) ((PRIMME_NUM*)y)[i] -= shift*aux[i];
    free(aux);
 
    if (stats) primme->stats.numMatvecs -= *blockSize; /* Removed the assumed blockSize MV prods */
