@@ -67,6 +67,8 @@ static void Apply_filter_augmented(void *x, void *y, int *blockSize, filter_para
                             primme_params *primme, int stats);
 static void Apply_filter_normalequation(void *x, void *y, int *blockSize, filter_params *filter,
                                  primme_params *primme, int stats);
+static void Apply_filter_gamma5(void *x, void *y, int *blockSize, filter_params *filter,
+                                 primme_params *primme, int stats);
 static int check_filter(double a, int d0, int d1, int setBounds, filter_params *filter, primme_params *primme);
 
 double elapsedTimeAMV, elapsedTimeFilterMV;
@@ -152,7 +154,10 @@ void Apply_filter(void *x, void *y, int *blockSize, filter_params *filter,
       case 14:
          Apply_filter_normalequation(x, y, blockSize, filter, primme, stats);
          break;
-       default:
+      case 15:
+         Apply_filter_gamma5(x, y, blockSize, filter, primme, stats);
+         break;
+      default:
          fprintf(stderr, "ERROR(Apply_filter): Invalid filter '%d'\n", filter->filter);
          return;
    }
@@ -956,6 +961,35 @@ static void Apply_filter_normalequation(void *x, void *y, int *blockSize, filter
    filter->matvec(aux, y, blockSize, primme);
    if (shift) for (i=0; i<primme->nLocal; i++) ((PRIMME_NUM*)y)[i] -= shift*aux[i];
    free(aux);
+
+   if (stats) primme->stats.numMatvecs -= *blockSize; /* Removed the assumed blockSize MV prods */
+   if (stats) primme->stats.numMatvecs += *blockSize * 2;
+}
+
+
+static void Apply_filter_gamma5(void *x, void *y, int *blockSize, filter_params *filter,
+                                        primme_params *primme, int stats) {
+
+   PRIMME_NUM *aux;
+   driver_params *driver = (driver_params*)primme;
+   int i;
+   const double shift = (filter->lowerBoundFix + filter->upperBoundFix)/2.;
+
+   if (!blockSize) {
+      return;
+   }
+
+   filter->matvec(x, y, blockSize, primme);
+   assert(driver->Aperm || primme->nLocal == primme->n);
+   if (driver->Aperm){
+      for (i=0; i<primme->nLocal; i++)
+         if (driver->Aperm[i]%12 > 5)
+            ((PRIMME_NUM*)y)[i] *= -1;
+   } else {
+      for (i=0; i<primme->nLocal; i++)
+         if (i%12 > 5)
+            ((PRIMME_NUM*)y)[i] *= -1;
+   }
 
    if (stats) primme->stats.numMatvecs -= *blockSize; /* Removed the assumed blockSize MV prods */
    if (stats) primme->stats.numMatvecs += *blockSize * 2;

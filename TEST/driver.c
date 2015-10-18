@@ -724,6 +724,7 @@ static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int
 #if defined(USE_MPI)
    primme->globalSumDouble = par_GlobalSumDouble;
 #endif
+   driver->Aperm = *permutation;
 
    /* Setup transform */
    if (driver->transform.filter) {

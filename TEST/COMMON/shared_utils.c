@@ -636,7 +636,8 @@ char *helpFilter[] = {"no filter",
                       "Chebyshev based on (A-shift I)^2",
                       "FEAST",
                       "Augmented matrix [0 A';A 0]",
-                      "Normal equation (A - shift*I)^2"};
+                      "Normal equation (A - shift*I)^2",
+                      "gamma5*A"};
 char *helpBoundFilter[] = {"extreme eigenvalue",
                            "last converged",
                            "last frozen",

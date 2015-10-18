@@ -82,6 +82,7 @@ typedef struct driver_params {
    filter_params orthoFilter;
    filter_params transform;
    int maxLocked;
+   int *Aperm;
    
 } driver_params;
 
