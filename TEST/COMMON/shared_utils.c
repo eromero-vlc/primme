@@ -637,7 +637,8 @@ char *helpFilter[] = {"no filter",
                       "FEAST",
                       "Augmented matrix [0 A';A 0]",
                       "Normal equation (A - shift*I)^2",
-                      "gamma5*A"};
+                      "gamma5*A",
+                      "gamma5*A*gamma5*A"};
 char *helpBoundFilter[] = {"extreme eigenvalue",
                            "last converged",
                            "last frozen",

@@ -69,6 +69,8 @@ static void Apply_filter_normalequation(void *x, void *y, int *blockSize, filter
                                  primme_params *primme, int stats);
 static void Apply_filter_gamma5(void *x, void *y, int *blockSize, filter_params *filter,
                                  primme_params *primme, int stats);
+static void Apply_filter_gamma5sq(void *x, void *y, int *blockSize, filter_params *filter,
+                                 primme_params *primme, int stats);
 static int check_filter(double a, int d0, int d1, int setBounds, filter_params *filter, primme_params *primme);
 
 double elapsedTimeAMV, elapsedTimeFilterMV;
@@ -156,6 +158,9 @@ void Apply_filter(void *x, void *y, int *blockSize, filter_params *filter,
          break;
       case 15:
          Apply_filter_gamma5(x, y, blockSize, filter, primme, stats);
+         break;
+      case 16:
+         Apply_filter_gamma5sq(x, y, blockSize, filter, primme, stats);
          break;
       default:
          fprintf(stderr, "ERROR(Apply_filter): Invalid filter '%d'\n", filter->filter);
@@ -970,29 +975,72 @@ static void Apply_filter_normalequation(void *x, void *y, int *blockSize, filter
 static void Apply_filter_gamma5(void *x, void *y, int *blockSize, filter_params *filter,
                                         primme_params *primme, int stats) {
 
-   PRIMME_NUM *aux;
    driver_params *driver = (driver_params*)primme;
-   int i;
+   int i,bs;
    const double shift = (filter->lowerBoundFix + filter->upperBoundFix)/2.;
+   const int nLocal = primme->nLocal;
 
    if (!blockSize) {
       return;
    }
 
-   filter->matvec(x, y, blockSize, primme);
    assert(driver->Aperm || primme->nLocal == primme->n);
+   filter->matvec(x, y, blockSize, primme);
+   bs = *blockSize;
    if (driver->Aperm){
-      for (i=0; i<primme->nLocal; i++)
-         if (driver->Aperm[i]%12 > 5)
+      for (i=0; i<bs*nLocal; i++)
+         if (driver->Aperm[i%bs]%12 > 5)
             ((PRIMME_NUM*)y)[i] *= -1;
    } else {
-      for (i=0; i<primme->nLocal; i++)
-         if (i%12 > 5)
+      for (i=0; i<bs*nLocal; i++)
+         if ((i%bs)%12 > 5)
             ((PRIMME_NUM*)y)[i] *= -1;
    }
 
    if (stats) primme->stats.numMatvecs -= *blockSize; /* Removed the assumed blockSize MV prods */
-   if (stats) primme->stats.numMatvecs += *blockSize * 2;
+   if (stats) primme->stats.numMatvecs += *blockSize;
+}
+
+static void Apply_filter_gamma5sq(void *x, void *y, int *blockSize, filter_params *filter,
+                                        primme_params *primme, int stats) {
+
+   PRIMME_NUM *aux;
+   driver_params *driver = (driver_params*)primme;
+   int i, bs;
+   const double shift = (filter->lowerBoundFix + filter->upperBoundFix)/2.;
+   const int nLocal = primme->nLocal;
+
+   if (!blockSize) {
+      return;
+   }
+
+   assert(driver->Aperm || primme->nLocal == primme->n);
+   bs = *blockSize;
+   aux = (PRIMME_NUM *)primme_calloc(bs*primme->nLocal, sizeof(PRIMME_NUM), "aux");
+   filter->matvec(x, aux, blockSize, primme);
+   if (driver->Aperm){
+      for (i=0; i<bs*nLocal; i++)
+         if (driver->Aperm[i%bs]%12 > 5)
+            aux[i] *= -1;
+   } else {
+      for (i=0; i<bs*nLocal; i++)
+         if ((i%bs)%12 > 5)
+            aux[i] *= -1;
+   }
+   filter->matvec(aux, y, blockSize, primme);
+   if (driver->Aperm){
+      for (i=0; i<bs*nLocal; i++)
+         if (driver->Aperm[i%bs]%12 > 5)
+            ((PRIMME_NUM*)y)[i] *= -1;
+   } else {
+      for (i=0; i<bs*nLocal; i++)
+         if ((i%bs)%12 > 5)
+            ((PRIMME_NUM*)y)[i] *= -1;
+   }
+   free(aux);
+
+   if (stats) primme->stats.numMatvecs -= bs; /* Removed the assumed blockSize MV prods */
+   if (stats) primme->stats.numMatvecs += bs * 2;
 }
 
 
