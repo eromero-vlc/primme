@@ -988,11 +988,11 @@ static void Apply_filter_gamma5(void *x, void *y, int *blockSize, filter_params 
    bs = *blockSize;
    if (driver->Aperm){
       for (i=0; i<bs*nLocal; i++)
-         if (driver->Aperm[i%bs]%12 > 5)
+         if (driver->Aperm[i%nLocal]%12 > 5)
             ((PRIMME_NUM*)y)[i] *= -1;
    } else {
       for (i=0; i<bs*nLocal; i++)
-         if ((i%bs)%12 > 5)
+         if ((i%nLocal)%12 > 5)
             ((PRIMME_NUM*)y)[i] *= -1;
    }
 
@@ -1018,21 +1018,21 @@ static void Apply_filter_gamma5sq(void *x, void *y, int *blockSize, filter_param
    filter->matvec(x, aux, blockSize, primme);
    if (driver->Aperm){
       for (i=0; i<bs*nLocal; i++)
-         if (driver->Aperm[i%bs]%12 > 5)
+         if (driver->Aperm[i%nLocal]%12 > 5)
             aux[i] *= -1;
    } else {
       for (i=0; i<bs*nLocal; i++)
-         if ((i%bs)%12 > 5)
+         if ((i%nLocal)%12 > 5)
             aux[i] *= -1;
    }
    filter->matvec(aux, y, blockSize, primme);
    if (driver->Aperm){
       for (i=0; i<bs*nLocal; i++)
-         if (driver->Aperm[i%bs]%12 > 5)
+         if (driver->Aperm[i%nLocal]%12 > 5)
             ((PRIMME_NUM*)y)[i] *= -1;
    } else {
       for (i=0; i<bs*nLocal; i++)
-         if ((i%bs)%12 > 5)
+         if ((i%nLocal)%12 > 5)
             ((PRIMME_NUM*)y)[i] *= -1;
    }
    free(aux);
