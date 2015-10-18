@@ -1066,7 +1066,7 @@ static void Apply_A_filter(void *x, void *y, int *blockSize,
    driver_params *driver = (driver_params*)primme;
    double ub, lb, ub0, lb0;
    int oldDegrees;
-   static int iwork[4], newDegrees;
+   static int iwork[4], newDegrees, minDegrees=999999;
    static double work[4];
    static filter_params filter0 = {-10,0};
    static primme_target target;
@@ -1103,18 +1103,23 @@ static void Apply_A_filter(void *x, void *y, int *blockSize,
    if (blockSize && driver->AFilter.degrees < 0) {
       if (reconsider_degree_filter(&filter0, primme, work, iwork, timeCostModelA)) {
          if (oldDegrees > 1) {
-            newDegrees = filter0.degrees;
+            assert(minDegrees>0);
+            newDegrees = max(minDegrees, filter0.degrees);
             filter0.degrees = oldDegrees;
-            /* Force restart PRIMME with the new degree */
-            primme->maxMatvecs = -1;
+            if (newDegrees != oldDegrees) {
+               /* Force restart PRIMME with the new degree */
+               primme->maxMatvecs = -1;
+            }
          } else {
             oldDegrees = newDegrees = filter0.degrees;
          }
       }
    }
-   if (filter0.degrees > 0)
+   if (filter0.degrees > 0) {
       if (tune_filter(&filter0, primme, blockSize == 0, primme->numBounds>0))
          oldDegrees = newDegrees = filter0.degrees;
+      minDegrees = min(minDegrees, filter0.degrees);
+   }
    Apply_filter(x, y, blockSize, &filter0, primme, 1);
    if (primme->printLevel >= 5 && blockSize) plot_filter(1000, &filter0, primme, stderr);
    if (blockSize) primme->stats.numMatvecs -= *blockSize;

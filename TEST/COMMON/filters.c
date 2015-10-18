@@ -977,7 +977,6 @@ static void Apply_filter_gamma5(void *x, void *y, int *blockSize, filter_params 
 
    driver_params *driver = (driver_params*)primme;
    int i,bs;
-   const double shift = (filter->lowerBoundFix + filter->upperBoundFix)/2.;
    const int nLocal = primme->nLocal;
 
    if (!blockSize) {
@@ -1007,7 +1006,6 @@ static void Apply_filter_gamma5sq(void *x, void *y, int *blockSize, filter_param
    PRIMME_NUM *aux;
    driver_params *driver = (driver_params*)primme;
    int i, bs;
-   const double shift = (filter->lowerBoundFix + filter->upperBoundFix)/2.;
    const int nLocal = primme->nLocal;
 
    if (!blockSize) {

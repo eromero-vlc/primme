@@ -28,6 +28,9 @@
 #include <math.h>
 #include <assert.h>
 #include "num.h"
+#ifdef USE_MPI
+#  include <mpi.h>
+#endif
 
 int model_conv_one(int d0, int its0, double res0, double tol, int n, double (*costModel)(int,int,int,int,void*), void *ctx);
 
@@ -47,72 +50,80 @@ int reconsider_degree_filter(filter_params *filter, primme_params *primme, doubl
    const double currTime = primme->stats.elapsedTimeMatvec + primme->stats.elapsedTimeOrtho + primme->stats.elapsedTimePrecond + primme->stats.elapsedTimeSolveH; //primme_wTimer(0);
    const double currRes = PURY(primme->stats.currentEigResidual), logCurrRes = log(currRes);
 
-   if (prevDegree < 0 || prevIt > primme->stats.numOuterIterations) {
-      /* First time this is called */
-      prevDegree = max(2, prevDegree); prevEigFirstIt = -1, prevIt = 0, decIts =  max(primme->minRestartSize, 10);
-      prevTime = currTime, prevResidual = 0, eigFirstRes = currRes, prevEigRes = 1;
-      reset = 1;
-   }
-   
-   if (prevEigFirstIt != primme->stats.currentEigFirstIteration) {
-      /* Different eigenvalue has been selected */
-      if (prevResidual != 0)
-         prevResidual = prevResidual + log(1./prevEigRes*currRes);
-      else
-         prevResidual = logCurrRes;
-      //assert(prevResidual > 0 && 1/prevResidual > 0);
-      prevEigFirstIt = primme->stats.currentEigFirstIteration;
-      newDegrees = max(2, prevDegree);
-      eigFirstRes = sqrt(eigFirstRes*primme->stats.currentEigFirstResidual);
-      //decIts = max(100, (int)((primme->stats.currentEigFirstIteration - prevEigFirstIt)/log10(prevEigFirstRes/prevEigRes)));
-      //reset = 1;
-   }
-   //assert(prevResidual > 0 && 1/prevResidual > 0);
-   if ((currTime - prevTime > 1 || fabs(logCurrRes-prevResidual) > 200) && currRes == primme->stats.currentEigResidual && eigFirstRes != 1 && primme->stats.numRestarts > 1 && prevResidual != 0 && (logCurrRes <= prevResidual-log(100.0) || prevIt + decIts < primme->stats.numOuterIterations)) {
-      /* Enough time/iterations/residual has passed */
-      double diffRes = logCurrRes-prevResidual;
-      if (diffRes >= 0) {
-         /* If residual has not been reduced, increase degrees */
-         newDegrees = 2*prevDegree;
-         newDegrees = prevDegree;
-         if (primme->printLevel > 3) printf("FILTERD: %d %d %g %g\n", primme->stats.numOuterIterations, newDegrees, logCurrRes, prevResidual);
+   if (primme->procID == 0) {
+      if (prevDegree < 0 || prevIt > primme->stats.numOuterIterations) {
+         /* First time this is called */
+         prevDegree = max(2, prevDegree); prevEigFirstIt = -1, prevIt = 0, decIts =  max(primme->minRestartSize, 10);
+         prevTime = currTime, prevResidual = 0, eigFirstRes = currRes, prevEigRes = 1;
          reset = 1;
-      } else {
-         /* Use cost model to set a new degree */
-         assert(prevDegree > 1);
-         assert(primme->stats.numOuterIterations-prevIt > 1);
-         assert(currRes > 0);
-         newDegrees = model_conv_one(prevDegree, primme->stats.numOuterIterations-prevIt,
-                        diffRes,
-                        min(primme->eps*primme->aNorm/eigFirstRes, 1),
-                        primme->numEvals-primme->initSize, costModel, primme);
-         if (newDegrees <= 1) newDegrees = prevDegree;
-         if (newDegrees != prevDegree) reset = 1;
-         if (primme->printLevel > 3) printf("FILTERD: %d %d\n", primme->stats.numOuterIterations, newDegrees);
       }
-   } else {
-      newDegrees = max(2, prevDegree);
-   }
-   if (reset || fabs(logCurrRes-prevResidual) > 200 /* avoid overflow in model_conv */) {
-      prevEigFirstIt = primme->stats.currentEigFirstIteration;
-      prevTime = currTime;
-      prevIt = primme->stats.numOuterIterations;
-      prevResidual = logCurrRes;
+      
+      if (prevEigFirstIt != primme->stats.currentEigFirstIteration) {
+         /* Different eigenvalue has been selected */
+         if (prevResidual != 0)
+            prevResidual = prevResidual + log(1./prevEigRes*currRes);
+         else
+            prevResidual = logCurrRes;
+         //assert(prevResidual > 0 && 1/prevResidual > 0);
+         prevEigFirstIt = primme->stats.currentEigFirstIteration;
+         newDegrees = max(2, prevDegree);
+         eigFirstRes = sqrt(eigFirstRes*primme->stats.currentEigFirstResidual);
+         //decIts = max(100, (int)((primme->stats.currentEigFirstIteration - prevEigFirstIt)/log10(prevEigFirstRes/prevEigRes)));
+         //reset = 1;
+      }
       //assert(prevResidual > 0 && 1/prevResidual > 0);
-   }
-   if (currRes == primme->stats.currentEigResidual) {
-      prevEigRes = currRes;
-      if (prevResidual == 0) prevResidual = logCurrRes;
-   }
+      if ((currTime - prevTime > 1 || fabs(logCurrRes-prevResidual) > 200) && currRes == primme->stats.currentEigResidual && eigFirstRes != 1 && primme->stats.numRestarts > 1 && prevResidual != 0 && (logCurrRes <= prevResidual-log(100.0) || prevIt + decIts < primme->stats.numOuterIterations)) {
+         /* Enough time/iterations/residual has passed */
+         double diffRes = logCurrRes-prevResidual;
+         if (diffRes >= 0) {
+            /* If residual has not been reduced, increase degrees */
+            newDegrees = 2*prevDegree;
+            newDegrees = prevDegree;
+            if (primme->printLevel > 3) printf("FILTERD: %d %d %g %g\n", primme->stats.numOuterIterations, newDegrees, logCurrRes, prevResidual);
+            reset = 1;
+         } else {
+            /* Use cost model to set a new degree */
+            assert(prevDegree > 1);
+            assert(primme->stats.numOuterIterations-prevIt > 1);
+            assert(currRes > 0);
+            newDegrees = model_conv_one(prevDegree, primme->stats.numOuterIterations-prevIt,
+                           diffRes,
+                           min(primme->eps*primme->aNorm/eigFirstRes, 1),
+                           primme->numEvals-primme->initSize, costModel, primme);
+            if (newDegrees <= 1) newDegrees = prevDegree;
+            if (newDegrees != prevDegree) reset = 1;
+            if (primme->printLevel > 3) printf("FILTERD: %d %d\n", primme->stats.numOuterIterations, newDegrees);
+         }
+      } else {
+         newDegrees = max(2, prevDegree);
+      }
+      if (reset || fabs(logCurrRes-prevResidual) > 200 /* avoid overflow in model_conv */) {
+         prevEigFirstIt = primme->stats.currentEigFirstIteration;
+         prevTime = currTime;
+         prevIt = primme->stats.numOuterIterations;
+         prevResidual = logCurrRes;
+         //assert(prevResidual > 0 && 1/prevResidual > 0);
+      }
+      if (currRes == primme->stats.currentEigResidual) {
+         prevEigRes = currRes;
+         if (prevResidual == 0) prevResidual = logCurrRes;
+      }
 
-   iwork[1] = prevEigFirstIt; iwork[2] = prevIt; iwork[3] = decIts;
-   work[0] = prevTime; work[1] = prevResidual; work[2] = eigFirstRes; work[3] = prevEigRes;
+      iwork[1] = prevEigFirstIt; iwork[2] = prevIt; iwork[3] = decIts;
+      work[0] = prevTime; work[1] = prevResidual; work[2] = eigFirstRes; work[3] = prevEigRes;
+   }
+   if (primme->numProcs > 1) {
+      double nd0 = primme->procID == 0 ? newDegrees : 0, nd1;
+      int one = 1;
+      primme->globalSumDouble(&nd0, &nd1, &one, primme);
+      newDegrees = (int)nd1;
+   }
    filter->degrees = newDegrees;
    return prevDegree != newDegrees;
 }
 
 int model_conv_one(int d0, int its0, double logRes0, double tol, int n, double (*costModel)(int,int,int,int,void*), void *ctx) {
-   double minModel=INFINITY, t, currModel=0;
+   double minModel=INFINITY, t, currModel=-1;
    int j,degree,minDegree=d0,its;
    int itsW=0;
 
@@ -126,6 +137,11 @@ int model_conv_one(int d0, int its0, double logRes0, double tol, int n, double (
       if (degree == d0) currModel = t;
       //printf("MODEL: %d %d %e\n", degree, its, t);
       if (t < minModel) { minModel = t; minDegree = degree; j = 0; itsW=its; }
+   }
+   if (currModel < 0) {
+      its = acosh(1./tol)/acosh(2.*pow((cosh(acosh(exp(-logRes0))/its0)+1.)/2., 1.0)-1.);
+      if (its <= 0) currModel = minModel;
+      else currModel = costModel(d0, its, 0, n, ctx);
    }
    printf("MODEL ... nD:%d nIts:%d s:%e d0:%d its0:%d tol:%e res0:%e n:%d\n", minDegree,itsW,currModel/minModel, d0, its0, tol, logRes0, n);
    return currModel/minModel >= 1.25 ? minDegree : d0;
