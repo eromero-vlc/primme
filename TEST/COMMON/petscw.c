@@ -103,10 +103,6 @@ static PetscErrorCode loadmtx(const char* filename, Mat *M, PetscBool *pattern) 
    PetscScalar s;
    long        pos;
 
-#if !defined(PETSC_i)
-#define PETSC_i 0.0
-#endif
-
    PetscFunctionBegin;
    
    f = fopen(filename,"r");
@@ -172,13 +168,13 @@ static PetscErrorCode loadmtx(const char* filename, Mat *M, PetscBool *pattern) 
       ierr = mm_read_mtx_crd_entry(f,&i,&j,&re,&im,type);
       i--; j--;
       if (i>=low && i<high) {
-         s = re + PETSC_i * im;
+         s = re + IMAGINARY * im;
          ierr = MatSetValue(*M,i,j,s,INSERT_VALUES);CHKERRQ(ierr);
       }
       if (j>=low && j<high && i != j && !mm_is_general(type)) {
-         if (mm_is_symmetric(type)) s = re + PETSC_i * im;
-         else if (mm_is_hermitian(type)) s = re - PETSC_i * im;
-         else if (mm_is_skew(type)) s = -re - PETSC_i * im;
+         if (mm_is_symmetric(type)) s = re + IMAGINARY * im;
+         else if (mm_is_hermitian(type)) s = re - IMAGINARY * im;
+         else if (mm_is_skew(type)) s = -re - IMAGINARY * im;
          else {
             SETERRQ1(PETSC_COMM_SELF,1,"Matrix format '%s' not supported",mm_typecode_to_str(type));
          }
