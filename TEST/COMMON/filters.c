@@ -503,8 +503,11 @@ static void Apply_filter_cheb(void *x, void *y, int *blockSize, filter_params *f
    PRIMME_NUM *xyvec, *xx0, *xr, *xy_new;
 
    double lowerBound, upperBound;
-   int j,k,j0,bs=*blockSize;
+   int j,k,j0,bs;
    double t0;
+
+   if (!blockSize) return;
+   bs=*blockSize;
 
    getBoundsTuned(filter, primme, &lowerBound, &upperBound);
    if (lowerBound <= filter->minEig && upperBound >= filter->maxEig) {
@@ -534,7 +537,7 @@ static void Apply_filter_cheb(void *x, void *y, int *blockSize, filter_params *f
    sigma = e/(a0 - c);
    sigma1 = sigma;
    filter->matvec(xvec, yvec, blockSize, primme);
-   if (stats) primme->stats.numMatvecs++;
+   if (stats) primme->stats.numMatvecs += bs;
    for (j=0, j0=primme->nLocal*bs; j<j0; ++j) x0[j] = 0.;
    for (j=0; j<bs; j++) xx0[j] = 1.;
    for (j=0, j0=primme->nLocal*bs; j<j0; ++j) yvec[j] = (yvec[j] - c*xvec[j])*sigma1/e;
@@ -547,7 +550,7 @@ static void Apply_filter_cheb(void *x, void *y, int *blockSize, filter_params *f
       assert(isfinite(yvec[0]));
       filter->matvec(yvec, y_new, blockSize, primme);
       assert(isfinite(y_new[0]));
-      if (stats) primme->stats.numMatvecs++;
+      if (stats) primme->stats.numMatvecs += bs;
       for (j=0, j0=primme->nLocal*bs; j<j0; ++j)
          y_new[j] = 2.*(y_new[j] - c*yvec[j])*sigma_new/e + 2*sigma_new*r[j]*xyvec[j] - sigma*sigma_new*x0[j];
       ortho2(y_new, xvec, xy_new, primme->nLocal, bs);
@@ -1095,35 +1098,31 @@ static void ortho2(PRIMME_NUM *y, const PRIMME_NUM *x, PRIMME_NUM *o, int n, int
    points is almost the same.
 */
 static int level_filter_bounds(filter_params *filter, primme_params *primme) {
-   double x[2], y[2], z0=0, z1, *z, zb;
-   int i;
+   double x[2], y[2], *lb, *ub, c, c1, c2, h, f, f2, tol, tolf;
 
    getBounds(filter, primme, &filter->lowerBoundTuned, &filter->upperBoundTuned);
    x[0] = filter->lowerBoundTuned;
    x[1] = filter->upperBoundTuned;
-   z = &filter->upperBoundTuned;
-   zb = filter->lowerBoundTuned;
+   lb = &filter->lowerBoundTuned;
+   ub = &filter->upperBoundTuned;
+
+   h = (*ub - *lb)/20;
+   tol = (*ub - *lb)/1024;
+   c1 = *lb + h;
+   c2 = *ub - h;
+   *lb = c2 - h;
+   *ub = c2 + h;
    eval_filter(x, y, 2, filter, primme);
-   if (y[1] > y[0]) {
-      x[0] = x[1];
-      x[1] = filter->lowerBoundTuned;
-      z = &filter->lowerBoundTuned;
-      zb = filter->upperBoundTuned;
-   }
-   for (i=0; i<1000 && *z >= filter->minEig && *z <= filter->maxEig; i++) {
-      z0 = *z;
-      *z = zb + (*z-zb)*1.01;
+   tolf = primme->eps*max(fabs(y[0]), fabs(y[1]))*100;
+   f2 = y[1] - y[0];
+   f = HUGE_VAL;
+   while (c2 - c1 > tol && fabs(f) > tolf) {
+      c = (c1 + c2)/2;
+      *lb = c - h;
+      *ub = c + h;
       eval_filter(x, y, 2, filter, primme);
-      if (y[1] >= y[0]) break;
-   }
-   *z = max(filter->minEig, min(filter->maxEig, *z)); 
-   if (y[1] < y[0]) return 0;
-   z1 = *z;
-   for (i=0; i<100 && fabs(y[1]-y[0])/fabs(y[1]+y[0])*2>.1; i++) {
-      *z = (z1 + z0)/2.;
-      eval_filter(x, y, 2, filter, primme);
-      if (y[1] >= y[0]) z1 = *z;
-      else z0 = *z;
+      f = y[1] - y[0];
+      if (f*f2 < 0) c1 = c; else c2 = c, f2 = f;
    }
    return 1;
 }
@@ -1174,7 +1173,7 @@ int tune_filter(filter_params *filter, primme_params *primme, int onlyIfStatic, 
       getBounds(filter, primme, &lb, &ub);
       chk = lb+ub+filter->degrees+filter->minEig+filter->maxEig;
       if (filter->lastCheckCS != chk) {
-         if (filter->checkEps != 0) check_filter(filter->checkEps, filter->degrees, 500, setBounds, filter, primme);
+         if (filter->checkEps != 0) check_filter(filter->checkEps, filter->degrees, 1000, setBounds, filter, primme);
          else check_filter(HUGE_VAL, filter->degrees, filter->degrees, setBounds, filter, primme);
          filter->lastCheckCS = chk;
          return 1;

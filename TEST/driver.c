@@ -1298,7 +1298,7 @@ static int spectrum_slicing(double *evals, PRIMME_NUM *evecs, double *rnorms, pr
 
       primme0->numEvals = min(maxNumEvals, primme->numEvals - numEvals);
       primme0->initSize = 0;
-      if (bounds[1] - bounds[0] > r*maxNumEvals) {
+      if (bounds[1] - bounds[0] > r*maxNumEvals*1.33) {
          double d = r*maxNumEvals, c = (bounds[1] + bounds[0])/2;
          bounds[0] = c - d/2;
          bounds[1] = c + d/2;
