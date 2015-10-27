@@ -343,7 +343,10 @@ int inner_solve_dprimme(double *x, double *r, double *rnorm,
          /* Stopping criteria                                       */
          /* --------------------------------------------------------*/
 
-         R = max(0.9878, sqrt(tau/tau_prev))*sqrt(1+dot_sol);
+         if (primme->target == primme_smallest || primme->target == primme_largest)
+            R = max(0.9878, sqrt(tau/tau_prev))*sqrt(1+dot_sol);
+         else  /* change for interior to avoid quick exit */
+            R = min(0.8,sqrt(tau/tau_prev))*sqrt(1+dot_sol);
         
          if ( tau <= R*eres_updated || eres_updated <= tau*R ) {
             if (primme->printLevel >= 5 && primme->procID == 0) {
