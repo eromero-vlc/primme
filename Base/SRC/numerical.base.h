@@ -128,6 +128,8 @@ int Num_compute_residual_i_@(pre)primme(int m, double *evals, @(type) *x, int n,
 void Num_trmm_@(pre)primme(const char *side, const char *uplo, const char *transa,
    const char *diag, int m, int n, @(type) alpha, @(type) *a, int lda, @(type) *b,
    int ldb);
+void Num_trsm_@(pre)primme(const char *side, const char *uplo, const char *transa, const char *diag,
+      int m, int n, @(type) alpha, @(type) *a, int lda, @(type) *b, int ldb);
 
 #define PRIMME_BLOCK_SIZE 512
 

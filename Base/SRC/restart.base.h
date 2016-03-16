@@ -38,9 +38,14 @@ int restart_@(pre)primme(@(type) *V, @(type) *W, int nLocal, int basisSize, int 
    int ldUDU, int *ipivot, int *numConverged, int *numLocked,
    int *numConvergedStored, @(type) *previousHVecs, int *numPrevRetained,
    int ldpreviousHVecs, int numGuesses, double *prevRitzVals, int *numPrevRitzVals,
-   @(type) *H, int ldH, @(type) *Q, int ldQ, @(type) *R, int ldR,
+   @(type) *H, int ldH, @(type) *Q, int ldQ, @(type) *R, int ldR, @(type)* QV, int ldQV,
    @(type) *hU, int ldhU, int newldhU, @(type) *hVecs, int ldhVecs, int newldhVecs,
    int *restartSizeOutput, int *targetShiftIndex, double machEps,
    @(type) *rwork, int rworkSize, int *iwork, primme_params *primme);
+
+int ortho_coefficient_vectors_@(pre)primme(@(type) *hVecs, int basisSize, int ldhVecs,
+   int indexOfPreviousVecs, int newBasisSize, int *perm, @(type) *hU, int ldhU,
+   @(type) *R, int ldR, int numPrevRetained, int machEps, int *iwork,
+   @(type) *rwork, int rworkSize, primme_params *primme);
 
 #endif

@@ -36,6 +36,7 @@
 #define PSEUDOLOCK_FAILURE       -5
 
 static int restart_soft_locking_zprimme(int *restartSize, Complex_Z *V, Complex_Z *W, int nLocal,
+   Complex_Z *hR, int ldhR, Complex_Z *hU, int ldhU,
    int basisSize, int ldV, Complex_Z **X, Complex_Z **R, Complex_Z *hVecs, int ldhVecs,
    int *restartPerm, double *hVals, int *flags, int *iev, int *ievSize,
    double *blockNorms, Complex_Z *evecs, double *evals, double *resNorms,
@@ -46,9 +47,9 @@ static int restart_soft_locking_zprimme(int *restartSize, Complex_Z *V, Complex_
 
 static int restart_projection_zprimme(Complex_Z *V, int ldV, Complex_Z *W, int ldW,
    Complex_Z *H, int ldH, Complex_Z *Q, int nLocal, int ldQ, Complex_Z *R, int ldR,
-   Complex_Z *hU, int ldhU, int newldhU, Complex_Z *hVecs, int ldhVecs, int newldhVecs,
-   double *hVals, double *hSVals, int *restartPerm, int *hVecsPerm,
-   int restartSize, int basisSize, int numPrevRetained,
+   Complex_Z *QV, int ldQV, Complex_Z *hU, int ldhU, int newldhU, Complex_Z *hVecs,
+   int ldhVecs, int newldhVecs, double *hVals, double *hSVals, int *restartPerm,
+   int *hVecsPerm, int restartSize, int basisSize, int numPrevRetained,
    int indexOfPreviousVecs, Complex_Z *evecs, int *evecsSize,
    int ldevecs, Complex_Z *evecsHat, int ldevecsHat, Complex_Z *M, int ldM, Complex_Z *UDU,
    int ldUDU, int *ipivot, int *targetShiftIndex, int numConverged,
@@ -62,11 +63,11 @@ static int restart_RR(Complex_Z *H, int ldH, Complex_Z *hVecs, int ldhVecs,
    int numPrevRetained, int indexOfPreviousVecs, int *hVecsPerm,
    int rworkSize, Complex_Z *rwork, int *iwork, primme_params *primme);
 
-static int restart_ref(Complex_Z *V, int ldV, Complex_Z *W, int ldW, Complex_Z *H,
-   int ldH, Complex_Z *Q, int nLocal, int ldQ, Complex_Z *R, int ldR, Complex_Z *hU,
-   int ldhU, int newldhU, Complex_Z *hVecs, int ldhVecs, int newldhVecs,
-   double *hVals, double *hSVals, int *restartPerm, int *hVecsPerm, int restartSize,
-   int basisSize, int numPrevRetained, int indexOfPreviousVecs,
+static int restart_qr(Complex_Z *V, int ldV, Complex_Z *W, int ldW, Complex_Z *H,
+   int ldH, Complex_Z *Q, int nLocal, int ldQ, Complex_Z *R, int ldR, Complex_Z *QV,
+   int ldQV, Complex_Z *hU, int ldhU, int newldhU, Complex_Z *hVecs, int ldhVecs,
+   int newldhVecs, double *hVals, double *hSVals, int *restartPerm, int *hVecsPerm,
+   int restartSize, int basisSize, int numPrevRetained, int indexOfPreviousVecs,
    int *targetShiftIndex, int numConverged, int rworkSize,
    Complex_Z *rwork, int *iwork, double machEps, primme_params *primme);
 

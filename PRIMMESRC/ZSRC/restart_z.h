@@ -38,9 +38,14 @@ int restart_zprimme(Complex_Z *V, Complex_Z *W, int nLocal, int basisSize, int l
    int ldUDU, int *ipivot, int *numConverged, int *numLocked,
    int *numConvergedStored, Complex_Z *previousHVecs, int *numPrevRetained,
    int ldpreviousHVecs, int numGuesses, double *prevRitzVals, int *numPrevRitzVals,
-   Complex_Z *H, int ldH, Complex_Z *Q, int ldQ, Complex_Z *R, int ldR,
+   Complex_Z *H, int ldH, Complex_Z *Q, int ldQ, Complex_Z *R, int ldR, Complex_Z* QV, int ldQV,
    Complex_Z *hU, int ldhU, int newldhU, Complex_Z *hVecs, int ldhVecs, int newldhVecs,
    int *restartSizeOutput, int *targetShiftIndex, double machEps,
    Complex_Z *rwork, int rworkSize, int *iwork, primme_params *primme);
+
+int ortho_coefficient_vectors_zprimme(Complex_Z *hVecs, int basisSize, int ldhVecs,
+   int indexOfPreviousVecs, int newBasisSize, int *perm, Complex_Z *hU, int ldhU,
+   Complex_Z *R, int ldR, int numPrevRetained, int machEps, int *iwork,
+   Complex_Z *rwork, int rworkSize, primme_params *primme);
 
 #endif

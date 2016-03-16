@@ -36,6 +36,7 @@
 #define PSEUDOLOCK_FAILURE       -5
 
 static int restart_soft_locking_@(pre)primme(int *restartSize, @(type) *V, @(type) *W, int nLocal,
+   @(type) *hR, int ldhR, @(type) *hU, int ldhU,
    int basisSize, int ldV, @(type) **X, @(type) **R, @(type) *hVecs, int ldhVecs,
    int *restartPerm, double *hVals, int *flags, int *iev, int *ievSize,
    double *blockNorms, @(type) *evecs, double *evals, double *resNorms,
@@ -46,9 +47,9 @@ static int restart_soft_locking_@(pre)primme(int *restartSize, @(type) *V, @(typ
 
 static int restart_projection_@(pre)primme(@(type) *V, int ldV, @(type) *W, int ldW,
    @(type) *H, int ldH, @(type) *Q, int nLocal, int ldQ, @(type) *R, int ldR,
-   @(type) *hU, int ldhU, int newldhU, @(type) *hVecs, int ldhVecs, int newldhVecs,
-   double *hVals, double *hSVals, int *restartPerm, int *hVecsPerm,
-   int restartSize, int basisSize, int numPrevRetained,
+   @(type) *QV, int ldQV, @(type) *hU, int ldhU, int newldhU, @(type) *hVecs,
+   int ldhVecs, int newldhVecs, double *hVals, double *hSVals, int *restartPerm,
+   int *hVecsPerm, int restartSize, int basisSize, int numPrevRetained,
    int indexOfPreviousVecs, @(type) *evecs, int *evecsSize,
    int ldevecs, @(type) *evecsHat, int ldevecsHat, @(type) *M, int ldM, @(type) *UDU,
    int ldUDU, int *ipivot, int *targetShiftIndex, int numConverged,
@@ -62,11 +63,11 @@ static int restart_RR(@(type) *H, int ldH, @(type) *hVecs, int ldhVecs,
    int numPrevRetained, int indexOfPreviousVecs, int *hVecsPerm,
    int rworkSize, @(type) *rwork, int *iwork, primme_params *primme);
 
-static int restart_ref(@(type) *V, int ldV, @(type) *W, int ldW, @(type) *H,
-   int ldH, @(type) *Q, int nLocal, int ldQ, @(type) *R, int ldR, @(type) *hU,
-   int ldhU, int newldhU, @(type) *hVecs, int ldhVecs, int newldhVecs,
-   double *hVals, double *hSVals, int *restartPerm, int *hVecsPerm, int restartSize,
-   int basisSize, int numPrevRetained, int indexOfPreviousVecs,
+static int restart_qr(@(type) *V, int ldV, @(type) *W, int ldW, @(type) *H,
+   int ldH, @(type) *Q, int nLocal, int ldQ, @(type) *R, int ldR, @(type) *QV,
+   int ldQV, @(type) *hU, int ldhU, int newldhU, @(type) *hVecs, int ldhVecs,
+   int newldhVecs, double *hVals, double *hSVals, int *restartPerm, int *hVecsPerm,
+   int restartSize, int basisSize, int numPrevRetained, int indexOfPreviousVecs,
    int *targetShiftIndex, int numConverged, int rworkSize,
    @(type) *rwork, int *iwork, double machEps, primme_params *primme);
 

@@ -950,7 +950,7 @@ static void unsetFilters(double *evals, PRIMME_NUM *evecs, double *rnorms, primm
 
 
 static int primmew(double *evals, PRIMME_NUM *evecs, double *rnorms, primme_params *primme) {
-   primme_stats stats0 = (primme_stats){0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+   primme_stats stats0 = (primme_stats){0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
    int numOrthoConst0, nconv, minRestartSize, ret;
    driver_params *driver = (driver_params*)primme;
    int master = 1;

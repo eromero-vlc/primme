@@ -171,6 +171,7 @@ int main_iter_zprimme(double *evals, int *perm, Complex_Z *evecs,
    int numQR;               /* Maximum number of QR factorizations           */
    Complex_Z *Q = NULL;       /* QR decompositions for harmonic or refined     */
    Complex_Z *R = NULL;       /* projection: (A-target[i])*V = QR              */
+   Complex_Z *QV = NULL;      /* Q'*V                                          */
 
    double *hVals;           /* Eigenvalues of H                              */
    double *hSVals=NULL;     /* Singular values of R                          */
@@ -207,6 +208,9 @@ int main_iter_zprimme(double *evals, int *perm, Complex_Z *evecs,
       R          = rwork; rwork += primme->maxBasisSize*primme->maxBasisSize*numQR;
       hU         = rwork; rwork += primme->maxBasisSize*primme->maxBasisSize*numQR;
    }
+   if (primme->projectionParams.projection == primme_proj_harmonic) {
+      QV         = rwork; rwork += primme->maxBasisSize*primme->maxBasisSize*numQR;
+   }
    H             = rwork; rwork += primme->maxBasisSize*primme->maxBasisSize;
    hVecs         = rwork; rwork += primme->maxBasisSize*primme->maxBasisSize;
    previousHVecs = rwork; rwork += primme->maxBasisSize*primme->restartingParams.maxPrevRetain;
@@ -240,9 +244,24 @@ int main_iter_zprimme(double *evals, int *perm, Complex_Z *evecs,
    /* Initialize counters and flags                                  */
    /* -------------------------------------------------------------- */
 
-   primme->stats = (primme_stats){0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+   primme->stats.numOuterIterations = 0;
+   primme->stats.numRestarts = 0;
+   primme->stats.numMatvecs = 0;
+   primme->stats.elapsedTimeMatvec = 0;
+   primme->stats.numPreconds = 0;
+   primme->stats.elapsedTime = 0;
+   primme->stats.numReorthos = 0; 
+   primme->stats.elapsedTimeOrtho = 0;
+   primme->stats.numColumnsOrtho = 0;
    primme->stats.currentEigFirstIteration = -1;
    primme->stats.currentEigFirstResidual = -1;
+   primme->stats.currentEigResidual = 0;
+   primme->stats.elapsedTimePrecond = 0;
+   primme->stats.elapsedTimeSolveH = 0;
+   primme->stats.estimateMaxEVal   = -HUGE_VAL;
+   primme->stats.estimateMinEVal   = HUGE_VAL;
+   primme->stats.estimateLargestSVal = -HUGE_VAL;
+   primme->stats.maxConvTol        = 0.0L;
 
    numLocked = 0;
    converged = FALSE;
@@ -255,10 +274,6 @@ int main_iter_zprimme(double *evals, int *perm, Complex_Z *evecs,
    /* Set the tolerance for the residual norms */
    /* ---------------------------------------- */
 
-   primme->stats.estimateMaxEVal   = -HUGE_VAL;
-   primme->stats.estimateMinEVal   = HUGE_VAL;
-   primme->stats.estimateLargestSVal = -HUGE_VAL;
-   primme->stats.maxConvTol        = 0.0L;
    if (primme->aNorm > 0.0L) {
       tol = primme->eps*primme->aNorm;
    }
@@ -344,13 +359,18 @@ int main_iter_zprimme(double *evals, int *perm, Complex_Z *evecs,
             primme->nLocal, R, primme->maxBasisSize, primme->targetShifts[targetShiftIndex], 0,
             basisSize, rwork, rworkSize, machEps, primme);
 
-      update_projection_zprimme(V, primme->nLocal, W, primme->nLocal, H,
+      if (H) update_projection_zprimme(V, primme->nLocal, W, primme->nLocal, H,
             primme->maxBasisSize, primme->nLocal, 0, basisSize, rwork,
-            rworkSize, primme);
+            rworkSize, 1/*symmetric*/, primme);
+
+      if (QV) update_projection_zprimme(Q, primme->nLocal, V, primme->nLocal, QV,
+            primme->maxBasisSize, primme->nLocal, 0, basisSize, rwork,
+            rworkSize, 0/*unsymmetric*/, primme);
 
       ret = solve_H_zprimme(H, basisSize, primme->maxBasisSize, R,
-            primme->maxBasisSize, hU, basisSize, hVecs, basisSize, hVals, hSVals,
-            numConverged, rworkSize, rwork, iwork, primme);
+            primme->maxBasisSize, QV, primme->maxBasisSize, hU, basisSize, hVecs,
+            basisSize, hVals, hSVals, numConverged, machEps, rworkSize, rwork,
+            iwork, primme);
       
       if (ret != 0) {
          primme_PushErrorMessage(Primme_main_iter, Primme_solve_h, ret, 
@@ -539,25 +559,41 @@ int main_iter_zprimme(double *evals, int *perm, Complex_Z *evecs,
                   primme->targetShifts[targetShiftIndex], basisSize,
                   blockSize, rwork, rworkSize, machEps, primme);
 
+            /* If harmonic, the coefficient vectors (i.e., the eigenvectors of the  */
+            /* projected problem) are in hU; so retain them.                        */
+
+            numPrevRetained = retain_previous_coefficients(QV ? hU : hVecs, 
+               previousHVecs, basisSize, iev, blockSize, primme);
+
             /* Extend H by blockSize columns and rows and solve the */
             /* eigenproblem for the new H.                          */
 
-            numPrevRetained = retain_previous_coefficients(hVecs, 
-               previousHVecs, basisSize, iev, blockSize, primme);
-            update_projection_zprimme(V, primme->nLocal, W, primme->nLocal, H,
+            if (H) update_projection_zprimme(V, primme->nLocal, W, primme->nLocal, H,
                   primme->maxBasisSize, primme->nLocal, basisSize, blockSize, rwork,
-                  rworkSize, primme);
+                  rworkSize, 1/*symmetric*/, primme);
+
+            if (QV) update_projection_zprimme(Q, primme->nLocal, V, primme->nLocal, QV,
+                  primme->maxBasisSize, primme->nLocal, basisSize, blockSize, rwork,
+                  rworkSize, 0/*unsymmetric*/, primme);
+
             basisSize += blockSize;
             blockSize = 0;
+
             ret = solve_H_zprimme(H, basisSize, primme->maxBasisSize, R,
-                  primme->maxBasisSize, hU, basisSize, hVecs, basisSize, hVals, hSVals,
-                  numConverged, rworkSize, rwork, iwork, primme);
+                  primme->maxBasisSize, QV, primme->maxBasisSize, hU, basisSize, hVecs,
+                  basisSize, hVals, hSVals, numConverged, machEps, rworkSize, rwork,
+                  iwork, primme);
 
             if (ret != 0) {
                primme_PushErrorMessage(Primme_main_iter, Primme_solve_h, ret,
                                __FILE__, __LINE__, primme);
                return SOLVE_H_FAILURE;
             }
+
+            check_projected_solution(basisSize,
+                  min(availableBlockSize+numConverged-numLocked, basisSize), hVals, hSVals,
+                  &targetShiftIndex, machEps, primme);
+            if (targetShiftIndex < 0) break;
  
            /* --------------------------------------------------------------- */
          } /* while (basisSize<maxBasisSize && basisSize<n-orthoConst-numLocked)
@@ -572,9 +608,9 @@ int main_iter_zprimme(double *evals, int *perm, Complex_Z *evecs,
                evecsHat, primme->nLocal, M, maxEvecsSize, UDU, 0, ipivot, &numConverged,
                &numLocked, &numConvergedStored, previousHVecs, &numPrevRetained,
                primme->maxBasisSize, numGuesses, prevRitzVals, &numPrevRitzVals, H,
-               primme->maxBasisSize, Q, primme->nLocal, R, primme->maxBasisSize, hU,
-               basisSize, 0, hVecs, basisSize, 0, &basisSize, &targetShiftIndex, machEps,
-               rwork, rworkSize, iwork, primme);
+               primme->maxBasisSize, Q, primme->nLocal, R, primme->maxBasisSize, QV,
+               primme->maxBasisSize, hU, basisSize, 0, hVecs, basisSize, 0, &basisSize,
+               &targetShiftIndex, machEps, rwork, rworkSize, iwork, primme);
 
          /* If there are any initial guesses remaining, then copy it */
          /* into the basis, else flag the vector as locked so it may */
@@ -609,18 +645,26 @@ int main_iter_zprimme(double *evals, int *perm, Complex_Z *evecs,
                   primme->targetShifts[targetShiftIndex], basisSize,
                   numNew, rwork, rworkSize, machEps, primme);
 
+            /* If harmonic, the coefficient vectors (i.e., the eigenvectors of the  */
+            /* projected problem) are in hU; so retain them.                        */
+
+            numPrevRetained = retain_previous_coefficients(QV ? hU : hVecs, 
+               previousHVecs, basisSize, iev, numNew, primme);
+
             /* Extend H by numNew columns and rows and solve the */
             /* eigenproblem for the new H.                       */
 
-            numPrevRetained = retain_previous_coefficients(hVecs, 
-               previousHVecs, basisSize, iev, numNew, primme);
-            update_projection_zprimme(V, primme->nLocal, W, primme->nLocal, H,
+            if (H) update_projection_zprimme(V, primme->nLocal, W, primme->nLocal, H,
                   primme->maxBasisSize, primme->nLocal, basisSize, numNew, rwork,
-                  rworkSize, primme);
+                  rworkSize, 1/*symmetric*/, primme);
+            if (QV) update_projection_zprimme(Q, primme->nLocal, V, primme->nLocal, QV,
+                  primme->maxBasisSize, primme->nLocal, basisSize, numNew, rwork,
+                  rworkSize, 0/*unsymmetric*/, primme);
             basisSize += numNew;
             ret = solve_H_zprimme(H, basisSize, primme->maxBasisSize, R,
-                  primme->maxBasisSize, hU, basisSize, hVecs, basisSize, hVals, hSVals,
-                  numConverged, rworkSize, rwork, iwork, primme);
+                  primme->maxBasisSize, QV, primme->maxBasisSize, hU, basisSize, hVecs,
+                  basisSize, hVals, hSVals, numConverged, machEps, rworkSize, rwork, iwork,
+                  primme);
 
             if (ret != 0) {
                primme_PushErrorMessage(Primme_main_iter, Primme_solve_h, ret,
@@ -682,7 +726,7 @@ int main_iter_zprimme(double *evals, int *perm, Complex_Z *evecs,
          /* then return success, else return with a failure.     */
  
          if (numConverged == primme->numEvals || converged) {
-            if (primme->aNorm <= 0.0L) primme->aNorm = primme->stats.estimateMaxEVal;
+            if (primme->aNorm <= 0.0L) primme->aNorm = primme->stats.estimateLargestSVal;
             return 0;
          }
          else {
@@ -748,7 +792,7 @@ int main_iter_zprimme(double *evals, int *perm, Complex_Z *evecs,
             }
 
             if (converged) {
-               if (primme->aNorm <= 0.0L) primme->aNorm = primme->stats.estimateMaxEVal;
+               if (primme->aNorm <= 0.0L) primme->aNorm = primme->stats.estimateLargestSVal;
                return 0;
             }
             else {
@@ -792,7 +836,7 @@ int main_iter_zprimme(double *evals, int *perm, Complex_Z *evecs,
    } /* while (!converged)  Outer verification loop
       * -------------------------------------------------------------- */
 
-   if (primme->aNorm <= 0.0L) primme->aNorm = primme->stats.estimateMaxEVal;
+   if (primme->aNorm <= 0.0L) primme->aNorm = primme->stats.estimateLargestSVal;
 
    return 0;
 
@@ -1076,6 +1120,62 @@ static int retain_previous_coefficients(Complex_Z *hVecs, Complex_Z *previousHVe
    return numPrevRetained;
 }
 
+/*******************************************************************************
+ * Function check_projected_solution - This subroutine checks that the
+ *    conditioning of the coefficient vectors are good enough to converge
+ *    with the requested accuracy. For now refined is the only that may preset
+ *    problems: two similar singular values in the projected problem may
+ *    correspond to distinct eigenvalues in the original problem.
+ *
+ *    It is checked that the next upper bound about the angle of the right
+ *    singular vector v of A and the right singular vector vtilde of A+E,
+ *
+ *      sin(v,vtilde) <= sqrt(2)*||E||/sval_gap <= sqrt(2)*||A||*machEps/sval_gap,
+ *
+ *    is less than the upper bound about the angle of exact eigenvector u and
+ *    the approximate eigenvector utilde,
+ *
+ *      sin(u,utilde) <= ||r||/eval_gap <= ||A||*eps/eval_gap.
+ *
+ *    (see pp. 211 in Matrix Algorithms vol. 2 Eigensystems, G. W. Steward).
+ *
+ *    Also consider that if we want |shift+d-l0| - |shift+d-l1| > diff,
+ *    then 2*d >= |diff - (|shift-l1| - |shift-l0|).
+ *
+ * INPUT ARRAYS AND PARAMETERS
+ * ---------------------------
+ * basisSize    Length of hVals
+ * blockSize    Number of values to check
+ * hVals        The Ritz values
+ * hSVals       The singular values of R
+ * targetShiftIndex The target shift used in (A - targetShift*B) = Q*R
+ * primme       Structure containing various solver parameters
+ *
+ ******************************************************************************/
+ static void check_projected_solution(int basisSize, int blockSize, double *hVals,
+      double *hSVals, int *targetShiftIndex, double machEps, primme_params *primme) {
+
+   int i;
+   double deltaTargetShift, maxDiff;
+
+   if (primme->projectionParams.projection != primme_proj_refined)
+      return;
+
+   deltaTargetShift = 0.0;
+   for (i=1; i<blockSize+1 && i<basisSize; i++) {
+      /* NOTE: the factor 10 is got experimentally; a taught case is */
+      /*       Laplacian 2D using 2 as the target shift.             */
+      maxDiff = sqrt(2.0)*machEps*fabs(hVals[i]-hVals[i-1])/primme->eps*10;
+      if (hSVals[i]-hSVals[i-1] < maxDiff)
+         deltaTargetShift = max(deltaTargetShift, fabs(maxDiff - hSVals[i]+hSVals[i-1])/2);
+   }
+
+   if (deltaTargetShift > 0.0) {
+      primme->targetShifts[*targetShiftIndex] += deltaTargetShift;
+      *targetShiftIndex = -1;
+   }
+
+}
 
 /*******************************************************************************
  * Function verify_norms - This subroutine computes the residual norms of the 
