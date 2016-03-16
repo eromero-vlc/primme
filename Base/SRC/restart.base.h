@@ -29,13 +29,18 @@
 #ifndef RESTART_H
 #define RESTART_H
 
-void reset_flags_@(pre)primme(int *flag, int first, int last);
+void reset_flags_@(pre)primme(int *flags, int first, int last);
 
-int restart_@(pre)primme(@(type) *V, @(type) *W, @(type) *H, @(type) *hVecs, 
-   double *hVals, int *flags, int *iev, @(type) *evecs, @(type) *evecsHat, 
-   @(type) *M, @(type) *UDU, int *ipivot, int basisSize, int numConverged, 
-   int *numConvergedStored, int numLocked, int numGuesses, 
-   @(type) *previousHVecs, int numPrevRetained, double machEps, 
-   @(type) *rwork, int rworkSize, primme_params *primme);
+int restart_@(pre)primme(@(type) *V, @(type) *W, int nLocal, int basisSize, int ldV,
+   double *hVals, double *hSVals, int *flags, int *iev, int *ievSize,
+   double *blockNorms, @(type) *evecs, int *evecsPerm, double *evals, double *resNorms,
+   @(type) *evecsHat, int ldevecsHat, @(type) *M, int ldM, @(type) *UDU,
+   int ldUDU, int *ipivot, int *numConverged, int *numLocked,
+   int *numConvergedStored, @(type) *previousHVecs, int *numPrevRetained,
+   int ldpreviousHVecs, int numGuesses, double *prevRitzVals, int *numPrevRitzVals,
+   @(type) *H, int ldH, @(type) *Q, int ldQ, @(type) *R, int ldR,
+   @(type) *hU, int ldhU, int newldhU, @(type) *hVecs, int ldhVecs, int newldhVecs,
+   int *restartSizeOutput, int *targetShiftIndex, double machEps,
+   @(type) *rwork, int rworkSize, int *iwork, primme_params *primme);
 
 #endif

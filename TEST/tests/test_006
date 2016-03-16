@@ -4,14 +4,9 @@
 //                 driver configuration
 // ---------------------------------------------------
 driver.matrixFile    = LUNDA.mtx
-driver.initialGuessesPert = 0.000000e+00
 driver.checkXFile    = tests/sol_006
 driver.PrecChoice    = jacobi
 driver.shift         = 3e8
-driver.isymm         = 0
-driver.level         = 2
-driver.threshold     = 0.010000
-driver.filter        = 0.000000
 
 // ---------------------------------------------------
 //                 primme configuration

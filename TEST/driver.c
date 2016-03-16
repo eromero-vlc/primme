@@ -65,11 +65,16 @@
 #endif
 #ifdef USE_PETSC
 # include "petscw.h"
+PetscLogEvent PRIMME_GLOBAL_SUM;
+#endif
+#ifdef USE_RSB
+#  include "rsbw.h"
 #endif
 
 /* primme.h header file is required to run primme */
 #include "primme.h"
 #include "shared_utils.h"
+#include "ioandtest.h"
 /* wtime.h header file is included so primme's timimg functions can be used */
 #include "wtime.h"
 
@@ -113,6 +118,10 @@ static int spectrum_slicing(double *evals, PRIMME_NUM *evecs, double *rnorms, pr
                             int maxNumEvals, int *perm);
 static int slice_tree(double *lb, double *ub, double lastMinEig, double lastMaxEig, double *queue, int lqueue, int *qtop);
 static void Apply_transform_filter(void *x, void *y, int *blockSize, primme_params *primme);
+static int real_main (int argc, char *argv[]);
+static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int **permutation);
+static int destroyMatrixAndPrecond(driver_params *driver, primme_params *primme, int *permutation);
+
 
 
 int main (int argc, char *argv[]) {
@@ -125,6 +134,7 @@ int main (int argc, char *argv[]) {
    MPI_Init(&argc, &argv);
 #elif defined(USE_PETSC)
    PetscInitialize(&argc, &argv, NULL, NULL);
+   PetscLogEventRegister("PRIMME global sum", 0, &PRIMME_GLOBAL_SUM);
    ierr = PetscLogBegin(); CHKERRQ(ierr);
 #endif
 
@@ -164,7 +174,7 @@ static int real_main (int argc, char *argv[]) {
    PRIMME_NUM *evecs;
    driver_params driver;
    primme_params *primme = &driver.primme;
-   primme_preset_method method;
+   primme_preset_method method=DEFAULT_METHOD;
    int *permutation = NULL;
 
    /* Other miscellaneous items */
@@ -217,7 +227,7 @@ static int real_main (int argc, char *argv[]) {
       /* Read in the PRIMME configuration file   */
       /* --------------------------------------- */
       if (read_solver_params(SolverConfigFileName, driver.outputFileName, 
-                           primme, &method) < 0) {
+                           &primme, "primme.", &method, "method") < 0) {
          fprintf(stderr, "Reading solver parameters failed\n");
          return(-1);
       }
@@ -236,24 +246,10 @@ static int real_main (int argc, char *argv[]) {
    /* --------------------------------------- */
    if (setMatrixAndPrecond(&driver, primme, &permutation) != 0) return -1;
 
-   if (master) {
-      /* --------------------------------------- */
-      /* Pick one of the default methods(if set) */
-      /* --------------------------------------- */
-      if (primme_set_method(method, primme) < 0 ) {
-         fprintf(primme->outputFile, "No preset method. Using custom settings\n");
-      }
-
-      /* --------------------------------------- */
-      /* Reread the PRIMME configuration file to */
-      /* some override primme_set_method changes */
-      /* --------------------------------------- */
-       if (read_solver_params(SolverConfigFileName, driver.outputFileName, 
-                              primme, &method) < 0) {
-         fprintf(stderr, "Reading solver parameters failed\n");
-         return(-1);
-      }
-   }
+   /* --------------------------------------- */
+   /* Pick one of the default methods(if set) */
+   /* --------------------------------------- */
+   primme_set_method(method, &primme);
 
 #ifdef USE_MPI
    /* ------------------------------------------------- */
@@ -267,7 +263,7 @@ static int real_main (int argc, char *argv[]) {
    /* Optional: report memory requirements    */
    /* --------------------------------------- */
 
-   ret = dprimme(NULL,NULL,NULL,primme);
+   ret = PREFIX(primme)(NULL,NULL,NULL,&primme);
    if (master) {
       fprintf(primme->outputFile,"PRIMME will allocate the following memory:\n");
       fprintf(primme->outputFile," processor %d, real workspace, %ld bytes\n",
@@ -285,7 +281,7 @@ static int real_main (int argc, char *argv[]) {
    if (master) {
       driver_display_params(driver, primme->outputFile); 
       primme_display_params(*primme);
-      driver_display_method(method, primme->outputFile);
+      driver_display_method(method, "method", primme.outputFile);
    }
 
 
@@ -453,119 +449,13 @@ static int real_main (int argc, char *argv[]) {
 
 /******************************************************************************/
 
-#ifdef USE_MPI
-/******************************************************************************
- * Function to broadcast the primme data structure to all processors
- *
- * EXCEPTIONS: procID and seed[] are not copied from processor 0. 
- *             Each process creates their own.
-******************************************************************************/
-static void broadCast(primme_params *primme, primme_preset_method *method, 
-   driver_params *driver, int master, MPI_Comm comm){
-
-   int i;
-
-   MPI_Bcast(driver->outputFileName, 512, MPI_CHAR, 0, comm);
-   MPI_Bcast(driver->matrixFileName, 1024, MPI_CHAR, 0, comm);
-   MPI_Bcast(driver->initialGuessesFileName, 1024, MPI_CHAR, 0, comm);
-   MPI_Bcast(driver->saveXFileName, 1024, MPI_CHAR, 0, comm);
-   MPI_Bcast(driver->checkXFileName, 1024, MPI_CHAR, 0, comm);
-   MPI_Bcast(&driver->initialGuessesPert, 1, MPI_DOUBLE, 0, comm);
-   MPI_Bcast(&driver->matrixChoice, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->PrecChoice, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->isymm, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->level, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->threshold, 1, MPI_DOUBLE, 0, comm);
-   MPI_Bcast(&driver->filter, 1, MPI_DOUBLE, 0, comm);
-   MPI_Bcast(&driver->shift, 1, MPI_DOUBLE, 0, comm);
-   MPI_Bcast(&driver->minEig, 1, MPI_DOUBLE, 0, comm);
-   MPI_Bcast(&driver->maxEig, 1, MPI_DOUBLE, 0, comm);
-   MPI_Bcast(&driver->maxLocked, 1, MPI_INT, 0, comm);
-
-   MPI_Bcast(&driver->AFilter.filter, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->AFilter.degrees, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->AFilter.lowerBound, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->AFilter.upperBound, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->AFilter.lowerBoundFix, 1, MPI_DOUBLE, 0, comm);
-   MPI_Bcast(&driver->AFilter.upperBoundFix, 1, MPI_DOUBLE, 0, comm);
-   MPI_Bcast(&driver->AFilter.checkEps, 1, MPI_DOUBLE, 0, comm);
-   MPI_Bcast(&driver->precFilter.filter, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->precFilter.degrees, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->precFilter.lowerBound, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->precFilter.upperBound, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->precFilter.lowerBoundFix, 1, MPI_DOUBLE, 0, comm);
-   MPI_Bcast(&driver->precFilter.upperBoundFix, 1, MPI_DOUBLE, 0, comm);
-   MPI_Bcast(&driver->precFilter.checkEps, 1, MPI_DOUBLE, 0, comm);
-   MPI_Bcast(&driver->orthoFilter.filter, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->orthoFilter.degrees, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->orthoFilter.lowerBound, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->orthoFilter.upperBound, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->orthoFilter.lowerBoundFix, 1, MPI_DOUBLE, 0, comm);
-   MPI_Bcast(&driver->orthoFilter.upperBoundFix, 1, MPI_DOUBLE, 0, comm);
-   MPI_Bcast(&driver->transform.filter, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->transform.degrees, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->transform.lowerBound, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->transform.upperBound, 1, MPI_INT, 0, comm);
-   MPI_Bcast(&driver->transform.lowerBoundFix, 1, MPI_DOUBLE, 0, comm);
-   MPI_Bcast(&driver->transform.upperBoundFix, 1, MPI_DOUBLE, 0, comm);
-   MPI_Bcast(&driver->transform.checkEps, 1, MPI_DOUBLE, 0, comm);
-
-   MPI_Bcast(&(primme->numEvals), 1, MPI_INT, 0, comm);
-   MPI_Bcast(&(primme->target), 1, MPI_INT, 0, comm);
-   MPI_Bcast(&(primme->numTargetShifts), 1, MPI_INT, 0, comm);
-
-   if (primme->numTargetShifts > 0 && !master) {
-      primme->targetShifts = (double *)primme_calloc(
-         primme->numTargetShifts, sizeof(double), "targetShifts");
-   }
-   for (i=0; i<primme->numTargetShifts; i++) {
-      MPI_Bcast(&(primme->targetShifts[i]), 1, MPI_DOUBLE, 0, comm);
-   }
-   MPI_Bcast(&(primme->numBounds), 1, MPI_INT, 0, comm);
-
-   if (primme->numBounds > 0 && !master) {
-      primme->bounds = (double *)primme_calloc(
-         primme->numBounds, sizeof(double), "bounds");
-   }
-   for (i=0; i<primme->numBounds; i++) {
-      MPI_Bcast(&(primme->bounds[i]), 1, MPI_DOUBLE, 0, comm);
-   }
-   MPI_Bcast(&(primme->locking), 1, MPI_INT, 0, comm);
-   MPI_Bcast(&(primme->dynamicMethodSwitch), 1, MPI_INT, 0, comm);
-   MPI_Bcast(&(primme->initSize), 1, MPI_INT, 0, comm);
-   MPI_Bcast(&(primme->numOrthoConst), 1, MPI_INT, 0, comm);
-   MPI_Bcast(&(primme->maxBasisSize), 1, MPI_INT, 0, comm);
-   MPI_Bcast(&(primme->minRestartSize), 1, MPI_INT, 0, comm);
-   MPI_Bcast(&(primme->maxBlockSize), 1, MPI_INT, 0, comm);
-   MPI_Bcast(&(primme->maxMatvecs), 1, MPI_INT, 0, comm);
-   MPI_Bcast(&(primme->maxOuterIterations), 1, MPI_INT, 0, comm);
-   MPI_Bcast(&(primme->aNorm), 1, MPI_DOUBLE, 0, comm);
-   MPI_Bcast(&(primme->eps), 1, MPI_DOUBLE, 0, comm);
-   MPI_Bcast(&(primme->printLevel), 1, MPI_INT, 0, comm);
-
-   MPI_Bcast(&(primme->restartingParams.scheme), 1, MPI_INT, 0, comm);
-   MPI_Bcast(&(primme->restartingParams.maxPrevRetain), 1, MPI_INT, 0, comm);
-   MPI_Bcast(&(primme->applyPrecondTo), 1, MPI_INT, 0, comm);
-
-   MPI_Bcast(&(primme->correctionParams.precondition), 1, MPI_INT, 0, comm);
-   MPI_Bcast(&(primme->correctionParams.robustShifts), 1, MPI_INT, 0, comm);
-   MPI_Bcast(&(primme->correctionParams.maxInnerIterations),1, MPI_INT, 0,comm);
-   MPI_Bcast(&(primme->correctionParams.convTest), 1, MPI_INT, 0, comm);
-   MPI_Bcast(&(primme->correctionParams.relTolBase), 1, MPI_DOUBLE, 0, comm);
-   MPI_Bcast(&(primme->correctionParams.projectors.LeftQ),  1, MPI_INT, 0,comm);
-   MPI_Bcast(&(primme->correctionParams.projectors.LeftX),  1, MPI_INT, 0,comm);
-   MPI_Bcast(&(primme->correctionParams.projectors.RightQ), 1, MPI_INT, 0,comm);
-   MPI_Bcast(&(primme->correctionParams.projectors.RightX), 1, MPI_INT, 0,comm);
-   MPI_Bcast(&(primme->correctionParams.projectors.SkewQ),  1, MPI_INT, 0,comm);
-   MPI_Bcast(&(primme->correctionParams.projectors.SkewX),  1, MPI_INT, 0,comm);
-   MPI_Bcast(&(primme->correctionParams.projectors.SkewX),  1, MPI_INT, 0,comm);
-
-   MPI_Bcast(method, 1, MPI_INT, 0, comm);
-}
+#ifdef _OPENMP
+#include <omp.h>
 #endif
 
 static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int **permutation) {
    int numProcs=1;
+   double aNorm;
 
 #  if defined(USE_MPI) || defined(USE_PETSC)
    MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
@@ -575,7 +465,11 @@ static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int
 
    if (driver->matrixChoice == driver_default) {
       if (numProcs <= 1) {
+#        ifdef USE_RSB
+         driver->matrixChoice = driver_rsb;
+#        else
          driver->matrixChoice = driver_native;
+#        endif
       } else {
 #        ifdef USE_PETSC
             driver->matrixChoice = driver_petsc;
@@ -601,9 +495,14 @@ static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int
       *(MPI_Comm*)primme->commInfo = MPI_COMM_WORLD;
 #  endif
       {
-         CSRMatrix *matrix;
-         
-         if (readMatrixNative(driver->matrixFileName, &matrix, &primme->aNorm) !=0 )
+         CSRMatrix *matrix, *prec;
+         double *diag;
+         /* Fix to use a single thread */
+         #ifdef _OPENMP
+         omp_set_num_threads(1);
+         #endif
+          
+         if (readMatrixNative(driver->matrixFileName, &matrix, &aNorm) !=0 )
             return -1;
          primme->matrix = matrix;
          primme->matrixMatvec = CSRMatrixMatvec;
@@ -617,7 +516,7 @@ static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int
             break;
          case driver_jacobi_i:
             primme->applyPreconditioner = ApplyInvDavidsonDiagPrecNative;
-            break; 
+            break;
          case driver_ilut:
             primme->applyPreconditioner = ApplyILUTPrecNative;
             break;
@@ -643,7 +542,7 @@ static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int
          ParaSails *precond=NULL;
          int m, mLocal;
          readMatrixAndPrecondParaSails(driver->matrixFileName, driver->shift, driver->level,
-               driver->threshold, driver->filter, driver->isymm, MPI_COMM_WORLD, &primme->aNorm,
+               driver->threshold, driver->filter, driver->isymm, MPI_COMM_WORLD, &aNorm,
                &primme->n, &m, &primme->nLocal, &mLocal, &primme->numProcs, &primme->procID, &matrix,
                (driver->PrecChoice == driver_ilut) ? &precond : NULL);
          *(MPI_Comm*)primme->commInfo = MPI_COMM_WORLD;
@@ -663,12 +562,12 @@ static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int
       {
          PetscErrorCode ierr;
          Mat *matrix,A;
+         PC pc;
          Vec *vec;
          int m, mLocal;
          PETScPrecondStruct *s;
-         PC pc;
          if (readMatrixPetsc(driver->matrixFileName, &primme->n, &m, &primme->nLocal, &mLocal,
-                         &primme->numProcs, &primme->procID, &matrix, &primme->aNorm, permutation) != 0)
+                         &primme->numProcs, &primme->procID, &matrix, &aNorm, permutation) != 0)
             return -1;
          *(MPI_Comm*)primme->commInfo = PETSC_COMM_WORLD;
          primme->matrix = matrix;
@@ -719,7 +618,51 @@ static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int
       }
 #endif
       break;
+
+   case driver_rsb:
+#if !defined(USE_RSB)
+      fprintf(stderr, "ERROR: RSB is needed!\n");
+      return -1;
+#else
+#  if defined(USE_MPI)
+      if (numProcs != 1) {
+         fprintf(stderr, "ERROR: MPI is not supported with RSB, use other!\n");
+         return -1;
+      }
+      *(MPI_Comm*)primme->commInfo = MPI_COMM_WORLD;
+#  endif
+      {
+         blas_sparse_matrix *matrix;
+         double *diag;
+         matrix = (blas_sparse_matrix *)primme_calloc(1, sizeof(blas_sparse_matrix), "matrix");
+         
+         if (readMatrixRSB(driver->matrixFileName, matrix, &aNorm) !=0 )
+            return -1;
+         primme->matrix = matrix;
+         primme->matrixMatvec = RSBMatvec;
+         primme->n = primme->nLocal = BLAS_usgp(*matrix, blas_num_rows);
+         switch(driver->PrecChoice) {
+         case driver_noprecond:
+            primme->preconditioner = NULL;
+            primme->applyPreconditioner = NULL;
+            break;
+         case driver_jacobi:
+            primme->applyPreconditioner = ApplyInvDiagPrecRSB;
+            break;
+         case driver_jacobi_i:
+            primme->applyPreconditioner = ApplyInvDavidsonDiagPrecRSB;
+            break;
+          default:
+            assert(0);
+            break;
+         }
+      }
+#endif
+      break;
+
    }
+
+   if (primme->aNorm < 0) primme->aNorm = aNorm;
 
 #if defined(USE_MPI)
    primme->globalSumDouble = par_GlobalSumDouble;
@@ -764,10 +707,7 @@ static int destroyMatrixAndPrecond(driver_params *driver, primme_params *primme,
          break;
       case driver_ilut:
          if (primme->preconditioner) {
-            free(((CSRMatrix*)primme->preconditioner)->AElts);
-            free(((CSRMatrix*)primme->preconditioner)->IA);
-            free(((CSRMatrix*)primme->preconditioner)->JA);
-            free(primme->preconditioner);
+            freeCSRMatrix((CSRMatrix*)primme->preconditioner);
          }
          break;
       case driver_filter:
@@ -813,244 +753,37 @@ static int destroyMatrixAndPrecond(driver_params *driver, primme_params *primme,
       }
 #endif
       break;
+
+   case driver_rsb:
+#if !defined(USE_RSB)
+      fprintf(stderr, "ERROR: RSB is needed!\n");
+      return -1;
+#else
+      {
+         blas_sparse_matrix *matrix = primme->matrix;
+         BLAS_usds(*matrix);
+         free(matrix);
+
+         switch(driver->PrecChoice) {
+         case driver_noprecond:
+            break;
+         case driver_jacobi:
+         case driver_jacobi_i:
+            free(primme->preconditioner);
+            break;
+         default:
+            assert(0);
+            break;
+         }
+      }
+#endif
+      break;
+
    }
 #if defined(USE_MPI)
    free(primme->commInfo);
 #endif
    if (permutation) free(permutation);
-   return 0;
-}
-
-
-#ifdef USE_MPI
-/******************************************************************************
- * MPI globalSumDouble function
- *
-******************************************************************************/
-static void par_GlobalSumDouble(void *sendBuf, void *recvBuf, int *count, 
-                         primme_params *primme) {
-   MPI_Comm communicator = *(MPI_Comm *) primme->commInfo;
-
-   MPI_Allreduce(sendBuf, recvBuf, *count, MPI_DOUBLE, MPI_SUM, communicator);
-}
-#endif
-
-#undef __FUNCT__
-#define __FUNCT__ "check_solution"
-static int check_solution(const char *checkXFileName, primme_params *primme, double *evals,
-                   PRIMME_NUM *evecs, double *rnorms, int *perm) {
-
-   double eval0, rnorm0, prod;
-   PRIMME_NUM *Ax, *r, *X=NULL, *h, *h0;
-   int i, j, cols, retX=0, one=1;
-   primme_params primme0;
-
-   /* Read stored eigenvectors and primme_params */
-   ASSERT_MSG(readBinaryEvecsAndPrimmeParams(checkXFileName, NULL, &X, primme->n, primme->n, &cols,
-                                             primme->nLocal, perm, &primme0) == 0, -1, "");
-   /* Check primme_params */
-#  define CHECK_PRIMME_PARAM(F) \
-        if (primme0. F != primme-> F ) { \
-           fprintf(stderr, "Warning: discrepancy in primme." #F ", %d should be close to %d\n", primme-> F , primme0. F ); \
-           retX = 1; \
-        }
-#  define CHECK_PRIMME_PARAM_DOUBLE(F) \
-        if (fabs(primme0. F - primme-> F) > primme-> F * 1e-14) { \
-           fprintf(stderr, "Warning: discrepancy in primme." #F ", %.16e should be close to %.16e\n", primme-> F , primme0. F ); \
-           retX = 1; \
-        }
-#  define CHECK_PRIMME_PARAM_TOL(F, T) \
-        if (abs(primme0. F - primme-> F ) > primme-> F * T /100+1) { \
-           fprintf(stderr, "Warning: discrepancy in primme." #F ", %d should be close to %d\n", primme-> F , primme0. F ); \
-           retX = 1; \
-        }
-
-   if (primme0.n) {
-      CHECK_PRIMME_PARAM(n);
-      CHECK_PRIMME_PARAM(numEvals);
-      CHECK_PRIMME_PARAM(target);
-      CHECK_PRIMME_PARAM(numTargetShifts);
-      CHECK_PRIMME_PARAM(dynamicMethodSwitch);
-      CHECK_PRIMME_PARAM(locking);
-      CHECK_PRIMME_PARAM(numOrthoConst);
-      CHECK_PRIMME_PARAM(maxBasisSize);
-      CHECK_PRIMME_PARAM(minRestartSize);
-      CHECK_PRIMME_PARAM(restartingParams.scheme);
-      CHECK_PRIMME_PARAM(restartingParams.maxPrevRetain);
-      CHECK_PRIMME_PARAM(correctionParams.precondition);
-      CHECK_PRIMME_PARAM(correctionParams.robustShifts);
-      CHECK_PRIMME_PARAM(correctionParams.maxInnerIterations);
-      CHECK_PRIMME_PARAM(correctionParams.projectors.LeftQ);
-      CHECK_PRIMME_PARAM(correctionParams.projectors.LeftX);
-      CHECK_PRIMME_PARAM(correctionParams.projectors.RightQ);
-      CHECK_PRIMME_PARAM(correctionParams.projectors.RightX);
-      CHECK_PRIMME_PARAM(correctionParams.projectors.SkewQ);
-      CHECK_PRIMME_PARAM(correctionParams.projectors.SkewX);
-      CHECK_PRIMME_PARAM(correctionParams.convTest);
-      CHECK_PRIMME_PARAM_DOUBLE(aNorm);
-      CHECK_PRIMME_PARAM_DOUBLE(eps);
-      CHECK_PRIMME_PARAM_DOUBLE(correctionParams.relTolBase);
-      CHECK_PRIMME_PARAM(initSize);
-      CHECK_PRIMME_PARAM_TOL(stats.numOuterIterations, 40);
-   }
-
-   h = (PRIMME_NUM *)primme_calloc(cols*2, sizeof(PRIMME_NUM), "h"); h0 = &h[cols];
-   Ax = (PRIMME_NUM *)primme_calloc(primme->nLocal, sizeof(PRIMME_NUM), "Ax");
-   r = (PRIMME_NUM *)primme_calloc(primme->nLocal, sizeof(PRIMME_NUM), "r");
-   
-   for (i=0; i < primme->initSize; i++) {
-      /* Check |V(:,i)'A*V(:,i) - evals[i]| < |r|*|A| */
-      primme->matrixMatvec(&evecs[primme->nLocal*i], Ax, &one, primme);
-      eval0 = REAL_PART(primme_dot(&evecs[primme->nLocal*i], Ax, primme));
-      if (fabs(evals[i] - eval0) > rnorms[i]*primme->aNorm && primme->procID == 0) {
-         fprintf(stderr, "Warning: Eval[%d] = %-22.15E should be close to %-22.1E\n", i, evals[i], eval0);
-         retX = 1;
-      }
-      /* Check |A*V(:,i) - (V(:,i)'A*V(:,i))*V(:,i)| < |r| */
-      for (j=0; j<primme->nLocal; j++) r[j] = Ax[j] - evals[i]*evecs[primme->nLocal*i+j];
-      rnorm0 = sqrt(REAL_PART(primme_dot(r, r, primme)));
-      if (fabs(rnorms[i]-rnorm0) > 4*max(primme->aNorm,fabs(evals[i]))*MACHINE_EPSILON && primme->procID == 0) {
-         fprintf(stderr, "Warning: Eval[%d] = %-22.15E, residual | %5E - %5E | <= %5E\n", i, evals[i], rnorms[i], rnorm0, 4*max(primme->aNorm,fabs(evals[i]))*MACHINE_EPSILON);
-         retX = 1;
-      }
-      if (rnorm0 > primme->eps*primme->aNorm*sqrt((double)(i+1)) && primme->procID == 0) {
-         fprintf(stderr, "Warning: Eval[%d] = %-22.15E, RR residual %5E is larger than tolerance %5E\n", i, evals[i], rnorm0, primme->eps*primme->aNorm*sqrt((double)(i+1)));
-         retX = 1;
-      }
-      /* Check X'V(:,i) >= sqrt(1-2|r|), assuming residual of X is less than the tolerance */
-      SUF(Num_gemv)("C", primme->nLocal, cols, COMPLEXZV(1.0), COMPLEXZ(X), primme->nLocal, COMPLEXZ(&evecs[primme->nLocal*i]), 1, COMPLEXZV(0.), COMPLEXZ(h), 1);
-      if (primme->globalSumDouble) {
-         int cols0 = cols*sizeof(PRIMME_NUM)/sizeof(double);
-         primme->globalSumDouble(h, h0, &cols0, primme);
-      }
-      else h0 = h;
-      prod = REAL_PARTZ(SUF(Num_dot)(cols, COMPLEXZ(h0), 1, COMPLEXZ(h0), 1));
-      if (prod < sqrt(1.-2.*rnorms[i]) && primme->procID == 0) {
-         fprintf(stderr, "Warning: Eval[%d] = %-22.15E not found on X, %5E > %5E\n", i, evals[i], prod, sqrt(1.-2.*rnorms[i]));
-         retX = 1;
-      }
-   }
-   free(h);
-   free(X);
-   free(r);
-   free(Ax);
-
-   return retX; 
-}
-
-#undef __FUNCT__
-#define __FUNCT__ "readBinaryEvecsAndPrimmeParams"
-static int readBinaryEvecsAndPrimmeParams(const char *fileName, PRIMME_NUM *X, PRIMME_NUM **Xout,
-                                          int n, int Xcols, int *Xcolsout, int nLocal,
-                                          int *perm, primme_params *primme_out) {
-
-#  define FREAD(A, B, C, D) { ASSERT_MSG(fread(A, B, C, D) == (size_t)C, -1, "Unexpected end of file\n"); }
-
-   FILE *f;
-   PRIMME_NUM d;
-   int i, j, cols;
-
-   ASSERT_MSG((f = fopen(fileName, "rb")),
-                  -1, "Could not open file %s\n", fileName);
-
-   /* Check number size */
-   /* NOTE: 2*IMAGINARY*IMAGINARY+1 is -1 in complex arith and 1 in real arith */
-   FREAD(&d, sizeof(d), 1, f);
-   ASSERT_MSG((int)(REAL_PART(d*(2.*IMAGINARY*IMAGINARY + 1.))) == (int)sizeof(d),
-                  -1, "Mismatch arithmetic in file %s\n", fileName);
-   /* Check matrix size */
-   FREAD(&d, sizeof(d), 1, f);
-   ASSERT_MSG(((int)REAL_PART(d)) == n,
-                  -1, "Mismatch matrix size in file %s\n", fileName);
-
-   /* Read X */
-   FREAD(&d, sizeof(d), 1, f); cols = REAL_PART(d);
-   if (Xcols > 0 && (X || Xout)) {
-      if (!X) *Xout = X = (PRIMME_NUM*)malloc(sizeof(PRIMME_NUM)*min(cols, Xcols)*nLocal);
-      if (Xcolsout) *Xcolsout = min(cols, Xcols);
-      if (!perm) {
-         for (i=0; i<min(cols, Xcols); i++) {
-            fseek(f, (i*n + 3)*sizeof(d), SEEK_SET);
-            FREAD(&X[nLocal*i], sizeof(d), nLocal, f);
-         }
-      }
-      else {
-         for (i=0; i<min(cols, Xcols); i++) {
-            for (j=0; j<nLocal; j++) {
-               fseek(f, (i*n + perm[j] + 3)*sizeof(d), SEEK_SET);
-               FREAD(&X[nLocal*i+j], sizeof(d), 1, f);
-            }
-         }
-      }
-   }
-   fseek(f, (cols*n + 3)*sizeof(d), SEEK_SET);
-
-   /* Read primme_params */
-   if (primme_out) {
-      FREAD(&d, sizeof(d), 1, f);
-      if ((int)REAL_PART(d) == (int)sizeof(*primme_out)) {
-         FREAD(primme_out, sizeof(*primme_out), 1, f);
-      }
-      else
-         primme_out->n = 0;
-   }
-
-   fclose(f);
-   return 0;
-}
-
-#undef __FUNCT__
-#define __FUNCT__ "writeBinaryEvecsAndPrimmeParams"
-static int writeBinaryEvecsAndPrimmeParams(const char *fileName, PRIMME_NUM *X, int *perm,
-                                           primme_params *primme) {
-
-#  define FWRITE(A, B, C, D) { ASSERT_MSG(fwrite(A, B, C, D) == (size_t)C, -1, "Unexpected error writing on %s\n", fileName); }
-
-   FILE *f;
-   PRIMME_NUM d;
-   int i, j;
-
-   ASSERT_MSG((f = fopen(fileName, "wb")),
-                  -1, "Could not open file %s\n", fileName);
-
-   /* Write number size */
-   if (primme->procID == 0) {
-      /* NOTE: 2*IMAGINARY*IMAGINARY+1 is -1 in complex arith and 1 in real arith */
-      d = (2.*IMAGINARY*IMAGINARY + 1.)*sizeof(d);
-      FWRITE(&d, sizeof(d), 1, f);
-      /* Write matrix size */
-      d = primme->n;
-      FWRITE(&d, sizeof(d), 1, f);
-      /* Write number of columns */
-      d = primme->initSize;
-      FWRITE(&d, sizeof(d), 1, f);
-   }
-
-   /* Write X */
-   if (!perm) {
-      for (i=0; i<primme->initSize; i++) {
-         fseek(f, (i*primme->n + 3)*sizeof(d), SEEK_SET);
-         FWRITE(&X[primme->nLocal*i], sizeof(d), primme->nLocal, f);
-      }
-   }
-   else {
-      for (i=0; i<primme->initSize; i++) {
-         for (j=0; j<primme->nLocal; j++) {
-            fseek(f, (i*primme->n + perm[j] + 3)*sizeof(d), SEEK_SET);
-            FWRITE(&X[primme->nLocal*i+j], sizeof(d), 1, f);
-         }
-      }
-   }
-
-   /* Write primme_params */
-   if (primme->procID == 0) {
-      fseek(f, sizeof(d)*(primme->n*primme->initSize + 3), SEEK_SET);
-      d = sizeof(*primme);
-      FWRITE(&d, sizeof(d), 1, f);
-      FWRITE(primme, sizeof(*primme), 1, f);
-   }
-
-   fclose(f);
    return 0;
 }
 

@@ -6,8 +6,8 @@ include ../Link_flags
 #------------------------------------------------
 
 
-SOBJS= driver.o COMMON/shared_utils.o COMMON/filters.o COMMON/costmodels.o
-COMMON_INCLUDE = -I./COMMON -I../PRIMMESRC/COMMONSRC
+SOBJS= driver.o COMMON/shared_utils.o COMMON/filters.o COMMON/costmodels.o COMMON/ioandtest.o
+COMMON_INCLUDE = -I./COMMON -I../PRIMMESRC/COMMONSRC -I../PRIMMESRC/SVDS/COMMONSRC
 override INCLUDE += $(COMMON_INCLUDE)
 LIBDIRS += -L../
 
@@ -15,12 +15,18 @@ USE_NATIVE    ?= yes
 USE_PETSC     ?= $(if $(findstring undefined,$(origin PETSC_DIR)),no,yes)
 USE_PARASAILS ?= $(if $(findstring undefined,$(origin PARASAILS_LIB_DIR)),no,yes)
 USE_FILTLAN   ?= no
+USE_MPI       ?= $(if $(findstring mpi,$(CC)),yes,$(USE_PETSC))
+USE_RSB       ?= $(if $(findstring undefined,$(origin LIBRSB_LIB_DIR)),no,yes)
+
+ifeq ($(USE_MPI), yes)
+  DEFINES += -DUSE_MPI
+endif
 
 ifeq ($(USE_NATIVE), yes)
   DEFINES += -DUSE_NATIVE
   SOBJS += COMMON/csr.o COMMON/mat.o COMMON/ssrcsr.o COMMON/mmio.o
-  SOBJSdouble += COMMON/ilut.o COMMON/amux.o
-  SOBJSdoublecomplex += COMMON/zilut.o COMMON/zamux.o
+  SOBJSdouble += COMMON/ilut.o COMMON/matvec.o
+  SOBJSdoublecomplex += COMMON/zilut.o COMMON/zmatvec.o
 endif
 
 ifeq ($(USE_PARASAILS), yes)
@@ -57,9 +63,14 @@ ifeq ($(USE_FEAST), yes)
   DEFINES += -DUSE_FEAST
 endif
 
-USE_MPI       ?= $(if $(findstring mpi,$(CC)),yes,no)
-ifeq ($(USE_MPI), yes)
-  DEFINES += -DUSE_MPI
+ifeq ($(USE_RSB), yes)
+  DEFINES += -DUSE_RSB
+  SOBJS += COMMON/rsbw.o
+  override INCLUDE += -I$(LIBRSB_INCLUDE_DIR)
+  LIBDIRS += -L$(LIBRSB_LIB_DIR)
+  override LIBS += -lrsb
+  override LDFLAGS += -fopenmp
+  override CFLAGS += -fopenmp
 endif
 
 
@@ -69,32 +80,24 @@ OBJSdoublecomplex = $(sort $(SOBJSdoublecomplex)) $(patsubst %.o,%doublecomplex.
 
 .PHONY: clean veryclean
 
-primme_double: $(OBJSdouble) ../libprimme.a Makefile
-	$(CLDR) -o primme_double $(OBJSdouble) $(LIBDIRS) $(INCLUDE) $(LIBS) $(LDFLAGS) 
+primme_double: $(OBJSdouble) driverdouble.o ../libprimme.a Makefile
+	$(CLDR) -o primme_double $(OBJSdouble) driverdouble.o $(LIBDIRS) $(INCLUDE) $(LIBS) $(LDFLAGS) 
 
-primme_doublecomplex: $(OBJSdoublecomplex) ../libprimme.a Makefile
-	$(CLDR) -o primme_doublecomplex $(OBJSdoublecomplex) $(LIBDIRS) $(INCLUDE) $(LIBS) $(LDFLAGS) 
+primme_doublecomplex: $(OBJSdoublecomplex) driverdoublecomplex.o ../libprimme.a Makefile
+	$(CLDR) -o primme_doublecomplex $(OBJSdoublecomplex) driverdoublecomplex.o $(LIBDIRS) $(INCLUDE) $(LIBS) $(LDFLAGS) 
 
-ex_dseq: ex_dseq.o ../libprimme.a Makefile
-	$(CLDR) -o ex_dseq ex_dseq.o $(LIBDIRS) $(INCLUDE) $(LIBS) $(LDFLAGS) 
+ex_dseq ex_zseq ex_petsc exsvd_dseq: %: %.o ../libprimme.a Makefile
+	$(CLDR) -o $@ $@.o $(LIBDIRS) $(INCLUDE) $(LIBS) $(LDFLAGS) 
 
-ex_zseq: ex_zseq.o ../libprimme.a Makefile
-	$(CLDR) -o ex_zseq ex_zseq.o $(LIBDIRS) $(INCLUDE) $(LIBS) $(LDFLAGS) 
+ex_dseqf77 ex_zseqf77 ex_petscf77 ex_petscf77ptr: % : %.o ../libprimme.a Makefile
+	$(FLDR) -o $@ $@.o $(LIBDIRS) $(INCLUDE) $(LIBS) $(LDFLAGS) 
 
-ex_petsc: ex_petsc.o ../libprimme.a Makefile
-	$(CLDR) -o ex_petsc ex_petsc.o $(LIBDIRS) $(INCLUDE) $(LIBS) $(LDFLAGS) 
+primmesvds_double: $(OBJSdouble) driversvdsdouble.o ../libprimme.a Makefile
+	$(CLDR) -o primmesvds_double $(OBJSdouble) driversvdsdouble.o $(LIBDIRS) $(INCLUDE) $(LIBS) $(LDFLAGS) 
 
-ex_dseqf77: ex_dseqf77.o ../libprimme.a Makefile
-	$(FLDR) -o ex_dseqf77 ex_dseqf77.o $(LIBDIRS) $(INCLUDE) $(LIBS) $(LDFLAGS) 
+primmesvds_doublecomplex: $(OBJSdoublecomplex) driversvdsdoublecomplex.o ../libprimme.a Makefile
+	$(CLDR) -o primmesvds_doublecomplex $(OBJSdoublecomplex) driversvdsdoublecomplex.o $(LIBDIRS) $(INCLUDE) $(LIBS) $(LDFLAGS) 
 
-ex_zseqf77: ex_zseqf77.o ../libprimme.a Makefile
-	$(FLDR) -o ex_zseqf77 ex_zseqf77.o $(LIBDIRS) $(INCLUDE) $(LIBS) $(LDFLAGS) 
-
-ex_petscf77: ex_petscf77.o ../libprimme.a Makefile
-	$(FLDR) -o ex_petscf77 ex_petscf77.o $(LIBDIRS) $(INCLUDE) $(LIBS) $(LDFLAGS) 
-
-ex_petscf77ptr: ex_petscf77ptr.o ../libprimme.a Makefile
-	$(FLDR) -o ex_petscf77ptr ex_petscf77ptr.o $(LIBDIRS) $(INCLUDE) $(LIBS) $(LDFLAGS) 
 
 %double.o: %.c
 	$(CC) $(CFLAGS) $(DEFINES) $(INCLUDE) -c $< -o $@
@@ -125,13 +128,18 @@ endif
 
 TESTS_ADD ?=
 
-all_tests_double: primme_double
+TESTS_double = tests/test_0??
+TESTS_doublecomplex = tests/test_0?? tests/test_1??
+TESTSsvds_double = tests/test_2??
+TESTSsvds_doublecomplex = tests/test_201 tests/test_202 tests/test_203
+
+all_tests_double all_tests_doublecomplex \
+all_testssvds_double all_testssvds_doublecomplex: all_tests%: primme%
 	@echo "Please wait, this could take a while...";\
-	ok="0";for i in tests/test_??? ; do \
-		echo "********** Test $$i double ***********"; \
-		cat $$i > ._test00; echo '$(TESTS_ADD)' >> ._test00;\
-		$(MPIRUN) ./primme_double ._test00 || ok="1"; \
-		rm ._test00;\
+	ok="0";for i in $(TESTS$*) ; do \
+		echo "********** Test $$i $* ***********"; \
+		sed 's/sol_.../&$*/' $$i > ._test00; echo '$(TESTS_ADD)' >> ._test00;\
+		$(MPIRUN) ./primme$* ._test00 || ok="1"; \
 	done > tests.log 2>&1;\
 	if test $$ok -eq 0 ; then \
 		echo "All tests passed!"; \
@@ -142,13 +150,13 @@ all_tests_double: primme_double
 		exit 1;\
 	fi
 
-all_tests_doublecomplex: primme_doublecomplex
+all_tests_double_save all_tests_doublecomplex_save \
+all_testssvds_double_save all_testssvds_doublecomplex_save: all_tests%_save: primme%
 	@echo "Please wait, this could take a while...";\
-	ok="0";	for i in tests/test_??? ; do \
-		echo "********** Test $$i complex ***********"; \
-		sed 's/sol_.../&.complex/' $$i > ._test00; echo '$(TESTS_ADD)' >> ._test00;\
-		$(MPIRUN) ./primme_doublecomplex ._test00 || ok="1"; \
-		rm ._test00;\
+	ok="0";for i in $(TESTS$*) ; do \
+		echo "********** Test $$i $* ***********"; \
+		sed 's/sol_.../&$*/; s/checkXFile/saveXFile/' $$i > ._test00;\
+		$(MPIRUN) ./primme$* ._test00 || ok="1"; \
 	done > tests.log 2>&1;\
 	if test $$ok -eq 0 ; then \
 		echo "All tests passed!"; \
@@ -160,21 +168,6 @@ all_tests_doublecomplex: primme_doublecomplex
 	fi
 
 
-all_tests_double_save: primme_double
-	@for i in tests/test_??? ; do \
-		sed 's/checkXFile/saveXFile/' $$i > ._test00; echo '$(TESTS_ADD)' >> ._test00;\
-		echo "********** Test $$i double ***********"; \
-		./primme_double ._test00 || ok="1"; \
-	done > tests.log 2>&1;\
-	rm -f ._test00
-
-all_tests_doublecomplex_save: primme_doublecomplex
-	@for i in tests/test_??? ; do \
-		sed 's/checkXFile/saveXFile/;s/sol_.../&.complex/' $$i > ._test00; echo '$(TESTS_ADD)' >> ._test00;\
-		echo "********** Test $$i complex ***********"; \
-		./primme_doublecomplex ._test00 || ok="1"; \
-	done > tests.log 2>&1;\
-	rm -f ._test00
 
 test_double: ex_dseq
 	@./ex_dseq > tests.log 2>&1 && grep -q "10 eigenpairs converged" tests.log \
@@ -213,6 +206,7 @@ COMMON/driver.c: COMMON/shared_utils.h COMMON/native.h COMMON/parasailsw.h COMMO
                  COMMON/filters.h COMMON/costmodels.h
 COMMON/filters.c: COMMON/filters.h
 COMMON/costmodels.c: COMMON/costmodels.h
+COMMON/ioandtest.c: COMMON/num.h COMMON/ioandtest.h
 
 ex_dseq.c: ex_c.m4
 	m4 ex_c.m4 > $@
@@ -234,3 +228,9 @@ ex_petscf77.F: ex_f77.m4
 
 ex_petscf77ptr.F: ex_f77.m4
 	m4 -D USE_PETSC -D USE_POINTER ex_f77.m4 > $@
+
+exsvd_dseq.c: exsvd_c.m4
+	m4 exsvd_c.m4 > $@
+
+exsvd_dseq0.c: exsvd_c.m4
+	m4 -D ADVANCED_HYBRID exsvd_c.m4 > $@

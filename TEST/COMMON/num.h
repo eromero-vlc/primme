@@ -105,4 +105,6 @@ static void primme_copy(int n, PRIMME_NUM *x, PRIMME_NUM *y) {
    int i;
    for (i=0; i<n; i++) y[i] = x[i];
 } 
+#define ASSERT_MSG(COND, RETURN, ...) { if (!(COND)) {fprintf(stderr, "Error in " __FUNCT__ ": " __VA_ARGS__); return (RETURN);} }
+
 #endif /* NUM_H */

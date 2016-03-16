@@ -27,13 +27,19 @@
  *
  ******************************************************************************/
 
+#include <assert.h>
 #include "primme.h"
 #include "update_W_d.h"
+<<<<<<< HEAD
 #include "wtime.h"
+=======
+#include "ortho_d.h"
+#include "numerical_d.h"
+>>>>>>> master
 
 
 /*******************************************************************************
- * Subroutine update_W - Computes A*V(:,nv+1) through A*V(:,nv+blksze)
+ * Subroutine matrixMatvec_ - Computes A*V(:,nv+1) through A*V(:,nv+blksze)
  *           where V(:,nv+1:nv+blksze) are the new correction vectors.
  *
  * INPUT ARRAYS AND PARAMETERS
@@ -47,16 +53,66 @@
  * W  A*V
  ******************************************************************************/
 
-void update_W_dprimme(double *V, double *W, int basisSize, int blockSize,
-   primme_params *primme) {
+void matrixMatvec_dprimme(double *V, int nLocal, int ldV, double *W,
+   int ldW, int basisSize, int blockSize, primme_params *primme) {
 
+<<<<<<< HEAD
    double t0;           /* Time */
 
    t0 = primme_wTimer(0);
    (*primme->matrixMatvec)(&V[primme->nLocal*basisSize],
                          &W[primme->nLocal*basisSize], &blockSize, primme);
    primme->stats.elapsedTimeMatvec += primme_wTimer(0) - t0;
+=======
+   int i, ONE=1;
+
+   if (blockSize <= 0) return;
+
+   /* W(:,c) = A*V(:,c) for c = basisSize:basisSize+blockSize-1 */
+   if (ldV == nLocal && ldW == nLocal) {
+      primme->matrixMatvec(&V[ldV*basisSize], &W[ldW*basisSize], &blockSize,
+            primme);
+   }
+   else {
+      for (i=0; i<basisSize; i++) {
+         primme->matrixMatvec(&V[ldV*(basisSize+i)], &W[ldW*(basisSize+i)], &ONE,
+               primme);
+      }
+   }
+>>>>>>> master
 
    primme->stats.numMatvecs += blockSize;
 
+}
+
+int update_Q_dprimme(double *V, int nLocal, int ldV, double *W, int ldW,
+      double *Q, int ldQ, double *R, int ldR, double targetShift, int basisSize,
+      int blockSize, double *rwork, int rworkSize, double machEps, primme_params *primme) {
+
+   int i, ret;
+
+   /* Return memory requirement */
+   if (V == NULL) {
+      return ortho_dprimme(NULL, 0, NULL, 0, basisSize,
+         basisSize+blockSize-1, NULL, 0, 0, primme->nLocal, 
+         NULL, machEps, NULL, 0, primme);
+   }
+
+   /* Quick exit */
+
+   if (blockSize <= 0 || Q == NULL || R == NULL) return 0;
+
+   assert(ldV >= nLocal && ldW >= nLocal && ldQ >= nLocal && ldR >= basisSize+blockSize);   
+
+   /* Q(:,c) = W(:,c) - V(:,c)*target for c = basisSize:basisSize+blockSize-1 */
+   for (i=basisSize; i<basisSize+blockSize; i++) {
+      Num_compute_residual_dprimme(nLocal, targetShift, &V[ldV*i], &W[ldW*i],
+            &Q[ldQ*i]);
+   }
+
+   /* Ortho Q(:,c) for c = basisSize:basisSize+blockSize-1 */
+   ret = ortho_dprimme(Q, ldQ, R, ldR, basisSize, basisSize+blockSize-1, NULL,
+         0, 0, nLocal, primme->iseed, machEps, rwork, rworkSize, primme);
+
+   return ret;
 }

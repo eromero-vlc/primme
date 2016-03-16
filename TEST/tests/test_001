@@ -3,14 +3,8 @@
 //                 driver configuration
 // ---------------------------------------------------
 driver.matrixFile    = LUNDA.mtx
-driver.initialGuessesPert = 0.000000e+00
 driver.checkXFile    = tests/sol_001
 driver.PrecChoice    = noprecond
-driver.shift         = 0.000000e+00
-driver.isymm         = 0
-driver.level         = 2
-driver.threshold     = 0.010000
-driver.filter        = 0.000000
 
 // ---------------------------------------------------
 //                 primme configuration
@@ -20,7 +14,6 @@ primme.printLevel = 1
 
 // Solver parameters
 primme.numEvals = 5
-primme.aNorm = 1.389726e+09
 primme.eps = 1.000000e-12
 primme.maxBasisSize = 140
 primme.minRestartSize = 1
@@ -28,11 +21,5 @@ primme.maxBlockSize = 1
 primme.maxMatvecs = 140
 primme.target = primme_largest
 primme.locking = 1
-
-// Restarting
-primme.restarting.maxPrevRetain = 2
-
-// Correction parameters
-primme.correction.precondition = 0
 
 method               = GD_Olsen_plusK

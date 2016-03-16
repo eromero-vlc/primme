@@ -30,7 +30,7 @@
 #define NATIVE_H
 
 #include "csr.h"
-#include "primme.h"
+#include "primme_svds.h"
 
 void CSRMatrixMatvec(void *x, void *y, int *blockSize, primme_params *primme);
 void ApplyInvDiagPrecNative(void *x, void *y, int *blockSize, 
@@ -38,6 +38,13 @@ void ApplyInvDiagPrecNative(void *x, void *y, int *blockSize,
 void ApplyInvDavidsonDiagPrecNative(void *x, void *y, int *blockSize, 
                                         primme_params *primme);
 void ApplyILUTPrecNative(void *x, void *y, int *blockSize, primme_params *primme);
+void CSRMatrixMatvecSVD(void *x, int *ldx, void *y, int *ldy, int *blockSize,
+                        int *trans, primme_svds_params *primme_svds);
+int createInvNormalPrecNative(const CSRMatrix *matrix, double shift, double **prec);
+void ApplyInvNormalPrecNative(void *x, int *ldx, void *y, int *ldy, int *blockSize,
+                              int *mode, primme_svds_params *primme_svds);
+void ApplyInvDavidsonNormalPrecNative(void *x, int *ldx, void *y, int *ldy, int *blockSize,
+                              int *mode, primme_svds_params *primme_svds);
 
 #endif
 
