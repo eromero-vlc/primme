@@ -116,16 +116,13 @@ void primme_initialize(primme_params *primme) {
    primme->stats.numPreconds       = 0;
    primme->stats.elapsedTimePrecond = 0.0L;
    primme->stats.elapsedTime       = 0.0L;
-<<<<<<< HEAD
    primme->stats.elapsedTimeOrtho  = 0.0L;
    primme->stats.numReorthos       = 0;
    primme->stats.elapsedTimeSolveH = 0.0L;
-=======
    primme->stats.estimateMaxEVal   = -HUGE_VAL;
    primme->stats.estimateMinEVal   = HUGE_VAL;
    primme->stats.estimateLargestSVal = -HUGE_VAL;
    primme->stats.maxConvTol        = 0.0L;
->>>>>>> master
 
    /* Optional user defined structures */
    primme->matrix                  = NULL;
@@ -552,80 +549,6 @@ void primme_set_defaults(primme_params *params) {
  *****************************************************************************/
 void primme_display_params(primme_params primme) {
 
-<<<<<<< HEAD
-const char *strapplyPrecondTo[] = {"primme_r", "primme_x", "primme_lastv"};
- 
-int i;
-FILE *outputFile = primme.outputFile;
-
-fprintf(outputFile, "// ---------------------------------------------------\n");
-fprintf(outputFile, "//                 primme configuration               \n");
-fprintf(outputFile, "// ---------------------------------------------------\n");
-
-fprintf(outputFile, "primme.n = %d \n",primme.n);
-fprintf(outputFile, "primme.nLocal = %d \n",primme.nLocal);
-fprintf(outputFile, "primme.numProcs = %d \n",primme.numProcs);
-fprintf(outputFile, "primme.procID = %d \n",primme.procID);
-
-fprintf(outputFile, "\n// Output and reporting\n");
-fprintf(outputFile, "primme.printLevel = %d \n",primme.printLevel);
-
-fprintf(outputFile, "\n// Solver parameters\n");
-fprintf(outputFile, "primme.numEvals = %d \n",primme.numEvals);
-fprintf(outputFile, "primme.aNorm = %e \n",primme.aNorm);
-fprintf(outputFile, "primme.eps = %e \n",primme.eps);
-fprintf(outputFile, "primme.maxBasisSize = %d \n",primme.maxBasisSize);
-fprintf(outputFile, "primme.minRestartSize = %d \n",primme.minRestartSize);
-fprintf(outputFile, "primme.maxBlockSize = %d\n",primme.maxBlockSize);
-fprintf(outputFile,
-                "primme.maxOuterIterations = %d\n",primme.maxOuterIterations);
-fprintf(outputFile, "primme.maxMatvecs = %d\n",primme.maxMatvecs);
-switch (primme.target){
-   case primme_smallest:
-      fprintf(outputFile, "primme.target = primme_smallest\n");
-      break;
-   case primme_largest:
-      fprintf(outputFile, "primme.target = primme_largest\n");
-      break;
-   case primme_closest_leq:
-      fprintf(outputFile, "primme.target = primme_closest_leq\n");
-      break;
-   case primme_closest_abs:
-      fprintf(outputFile, "primme.target = primme_closest_abs\n");
-      break;
-   case primme_closest_geq:
-      fprintf(outputFile, "primme.target = primme_closest_geq\n");
-      break;
-}
-
-fprintf(outputFile, "primme.numTargetShifts = %d\n",primme.numTargetShifts);
-if (primme.numTargetShifts > 0) {
-   fprintf(outputFile, "primme.targetShifts =");
-   for (i=0; i<primme.numTargetShifts;i++) {
-      fprintf(outputFile, " %e",primme.targetShifts[i]);
-   }
-   fprintf(outputFile, "\n");
-}
-
-fprintf(outputFile, "primme.numBounds = %d\n",primme.numBounds);
-if (primme.numBounds > 0) {
-   fprintf(outputFile, "primme.bounds =");
-   for (i=0; i<primme.numBounds;i++) {
-      fprintf(outputFile, " %e",primme.bounds[i]);
-   }
-   fprintf(outputFile, "\n");
-}
-
-
-fprintf(outputFile, "primme.dynamicMethodSwitch = %d\n",
-                                                primme.dynamicMethodSwitch);
-fprintf(outputFile, "primme.locking = %d\n",primme.locking);
-fprintf(outputFile, "primme.initSize = %d\n",primme.initSize);
-fprintf(outputFile, "primme.numOrthoConst = %d\n",primme.numOrthoConst);
-fprintf(outputFile, "primme.iseed =");
-for (i=0; i<4;i++) {
-   fprintf(outputFile, " %d",primme.iseed[i]);
-=======
    fprintf(primme.outputFile,
            "// ---------------------------------------------------\n"
            "//                 primme configuration               \n"
@@ -633,7 +556,6 @@ for (i=0; i<4;i++) {
 
    primme_display_params_prefix("primme", primme);
    fflush(primme.outputFile);
->>>>>>> master
 }
 
 void primme_display_params_prefix(const char* prefix, primme_params primme) {
@@ -691,38 +613,15 @@ void primme_display_params_prefix(const char* prefix, primme_params primme) {
       fprintf(outputFile, "\n");
    }
 
-<<<<<<< HEAD
-fprintf(outputFile, "primme.restarting.maxPrevRetain = %d\n",
-                     primme.restartingParams.maxPrevRetain);
+   PRINT(numBounds, %d);
+   if (primme.numBounds > 0 && primme.bounds) {
+      fprintf(outputFile, "%s.bounds =", prefix);
+      for (i=0; i<primme.numBounds;i++) {
+         fprintf(outputFile, " %e",primme.bounds[i]);
+      }
+      fprintf(outputFile, "\n");
+   }
 
-fprintf(outputFile, "\n// Correction parameters\n");
-fprintf(outputFile, "primme.correction.precondition = %d\n",
-                     primme.correctionParams.precondition);
-fprintf(outputFile, "primme.applyPrecondTo = %s\n",
-                     strapplyPrecondTo[primme.applyPrecondTo]);
-fprintf(outputFile, "primme.correction.robustShifts = %d\n",
-                     primme.correctionParams.robustShifts);
-fprintf(outputFile, "primme.correction.maxInnerIterations = %d\n",
-                     primme.correctionParams.maxInnerIterations);
-fprintf(outputFile, "primme.correction.relTolBase = %g\n",
-                     primme.correctionParams.relTolBase);
-
-fprintf(outputFile, "primme.correction.convTest = ");
-switch (primme.correctionParams.convTest) {
-   case primme_adaptive_ETolerance:
-      fprintf(outputFile, "primme_adaptive_ETolerance\n");
-      break;
-   case primme_adaptive:
-      fprintf(outputFile, "primme_adaptive\n");
-      break;
-   case primme_full_LTolerance:
-      fprintf(outputFile, "primme_full_LTolerance\n");
-      break;
-   case primme_decreasing_LTolerance:
-      fprintf(outputFile, "primme_decreasing_LTolerance\n");
-      break;
-}
-=======
    PRINT(dynamicMethodSwitch, %d);
    PRINT(locking, %d);
    PRINT(initSize, %d);
@@ -732,7 +631,6 @@ switch (primme.correctionParams.convTest) {
       fprintf(outputFile, " %d",primme.iseed[i]);
    }
    fprintf(outputFile, "\n");
->>>>>>> master
 
    fprintf(outputFile, "\n// Restarting\n");
    PRINTParamsIF(restarting, scheme, primme_thick);
@@ -758,6 +656,11 @@ switch (primme.correctionParams.convTest) {
    PRINTParams(correction, projectors.SkewQ , %d);
    PRINTParams(correction, projectors.RightX, %d);
    PRINTParams(correction, projectors.SkewX , %d);
+
+   PRINTIF(applyPrecondTo, primme_r);
+   PRINTIF(applyPrecondTo, primme_x);
+   PRINTIF(applyPrecondTo, primme_lastv);
+
    fprintf(outputFile, "// ---------------------------------------------------\n");
 
 #undef PRINT

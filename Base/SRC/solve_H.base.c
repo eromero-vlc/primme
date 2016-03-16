@@ -170,7 +170,6 @@ int solve_H_RR_@(pre)primme(@(type) *H, int ldH, @(type) *hVecs,
 #ifdefarithm L_DEFCPLX
    double  *doubleWork;
 #endifarithm
-   double t0;
 
    /* ---------------------- */
    /* Divide the iwork space */
@@ -335,7 +334,6 @@ int solve_H_RR_@(pre)primme(@(type) *H, int ldH, @(type) *hVecs,
    /* ---------------------------------------------------------------------- */
 
    if (primme->target == primme_smallest) {
-      primme->stats.elapsedTimeSolveH += primme_wTimer(0) - t0;
       return 0;
    }
 

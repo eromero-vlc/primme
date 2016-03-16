@@ -721,6 +721,7 @@ static int restart_projection_dprimme(double *V, int ldV, double *W, int ldW,
 
    if (evecsHat) {
       int numRecentlyConverged = numConverged - *evecsSize;
+      double t0;           /* Time */
 
       /* Return memory requirement */
       if (H == NULL) {
@@ -739,9 +740,11 @@ static int restart_projection_dprimme(double *V, int ldV, double *W, int ldW,
          maybe it makes sense to always set NULL shiftsForPreconditioner
          when SkewQ is enabled to force the same preconditioner. */
       assert(ldevecs == primme->nLocal);
+      t0 = primme_wTimer(0);
       primme->applyPreconditioner(&evecs[primme->nLocal*(*evecsSize+primme->numOrthoConst)],
             &evecsHat[primme->nLocal*(*evecsSize+primme->numOrthoConst)], &numRecentlyConverged,
             primme);
+      primme->stats.elapsedTimePrecond += primme_wTimer(0) - t0;
       primme->stats.numPreconds += numRecentlyConverged;
 
       /* Update the projection evecs'*evecsHat now that evecs and evecsHat   */
@@ -1470,55 +1473,8 @@ void reset_flags_dprimme(int *flags, int first, int last) {
 
    int i;  /* Loop variable */
 
-<<<<<<< HEAD
-   for (i = 0; i <= first-1; i++) {
-      if (flag[i] != CONVERGED && flag[i] != PRACTICALLY_CONVERGED ) {
-         flag[i] = UNCONVERGED;
-      }
-   }
-
-   for (i=first; i <= last; i++) {
-      flag[i] = UNCONVERGED;
-   }
-
-}
-
-/*******************************************************************************
- * Subroutine apply_preconditioner_block - This subroutine applies the 
- *    preconditioner to a block of vectors v by computing: K^{-1}v
- *    (duplicated here as with correection.c to allow for static use)
- *
- * Input Parameters
- * ----------------
- * v         The vectors the preconditioner will be applied to.
- *
- * blockSize The number of vectors in the blocks v, result
- *
- * primme      Structure containing various solver parameters
- * 
- * Output parameters
- * -----------------
- * result    The result of the application of K^{-1}
- *
- ******************************************************************************/
-
-static void apply_preconditioner_block(double *v, double *result, 
-                int blockSize, primme_params *primme) {
-   double t0;           /* Time */
-         
-   if (primme->correctionParams.precondition) {
-
-      t0 = primme_wTimer(0);
-      (*primme->applyPreconditioner)(v, result, &blockSize, primme);
-      primme->stats.elapsedTimePrecond += primme_wTimer(0) - t0;
-      primme->stats.numPreconds += blockSize;
-   }
-   else {
-      Num_dcopy_dprimme(primme->nLocal*blockSize, v, 1, result, 1);
-=======
    for (i = 0; i <= last; i++) {
       flags[i] = UNCONVERGED;
->>>>>>> master
    }
 
 }

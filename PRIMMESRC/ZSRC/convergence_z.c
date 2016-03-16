@@ -68,23 +68,6 @@
  * flags          Array indicating which eigenvectors have converged     
  ******************************************************************************/
 
-<<<<<<< HEAD
-int check_convergence_zprimme(Complex_Z *V, Complex_Z *W, Complex_Z *hVecs, 
-   double *hVals, int *flags, int basisSize, int *iev, int *ievMax, 
-   double *blockNorms, int *blockSize, int numConverged, int numLocked, 
-   Complex_Z *evecs, double tol, double maxConvTol, double aNormEstimate, 
-   Complex_Z *rwork, primme_params *primme) {
-
-   int i;             /* Loop variable                                        */
-   int left, right;   /* Range of block vectors to be checked for convergence */
-   int start;         /* starting index in block of converged/tobeProject vecs*/
-   int numVacancies;  /* Number of vacant positions between left and right    */
-   int recentlyConverged; /* The number of Ritz values declared converged     */
-                          /* since the last iteration                         */
-   int numToProject;      /* Number of vectors with potential accuracy problem*/
-   double attainableTol=0;/* Used in locking to check near convergence problem*/
-
-=======
 int check_convergence_zprimme(Complex_Z *X, int nLocal, int ldX, Complex_Z *R,
    int ldR, Complex_Z *evecs, int numLocked, int ldevecs, int left, int right,
    int *flags, double *blockNorms, double *hVals, double machEps, Complex_Z *rwork,
@@ -107,7 +90,6 @@ int check_convergence_zprimme(Complex_Z *X, int nLocal, int ldX, Complex_Z *R,
          NULL, right-left, NULL, NULL, 0, NULL, 0, primme) : 0;
    }
    
->>>>>>> master
    /* -------------------------------------------- */
    /* Tolerance based on our dynamic norm estimate */
    /* -------------------------------------------- */

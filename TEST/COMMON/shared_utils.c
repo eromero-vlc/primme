@@ -179,7 +179,25 @@ int read_solver_params(char *configFileName, char *outputFileName,
                }
             }
          }
- 
+
+         READ_FIELD(numBounds, %d);
+         if (strcmp(field, "bounds") == 0) {
+            ret = 1;
+            if (primme->numBounds > 0) {
+               primme->bounds = (double *)primme_calloc(
+                  primme->numBounds, sizeof(double), "bounds");
+               for (i=0; i<primme->numBounds; i++) {
+                  ret = fscanf(configFile, "%le", &primme->bounds[i]);
+                  if (ret != 1) break;
+               }
+            }
+            if (ret == 1) {
+               if (fgets(ident, 2048, configFile) == NULL) {
+                  break;
+               }
+            }
+         }
+  
          READ_FIELD(dynamicMethodSwitch, %d);
          READ_FIELD(locking, %d);
          READ_FIELD(initSize, %d);
@@ -223,6 +241,12 @@ int read_solver_params(char *configFileName, char *outputFileName,
          READ_FIELDParams(correction, projectors.SkewQ , %d);
          READ_FIELDParams(correction, projectors.RightX, %d);
          READ_FIELDParams(correction, projectors.SkewX , %d);
+
+         READ_FIELD_OP(applyPrecondTo,
+            OPTION(applyPrecondTo, primme_r)
+            OPTION(applyPrecondTo, primme_x)
+            OPTION(applyPrecondTo, primme_lastv)
+         );
 
          if (ret == 0) {
             fprintf(stderr, 
@@ -853,6 +877,38 @@ void broadCast(primme_params *primme, primme_preset_method *method,
       MPI_Bcast(&driver->threshold, 1, MPI_DOUBLE, 0, comm);
       MPI_Bcast(&driver->filter, 1, MPI_DOUBLE, 0, comm);
       MPI_Bcast(&driver->shift, 1, MPI_DOUBLE, 0, comm);
+
+      MPI_Bcast(&driver->minEig, 1, MPI_DOUBLE, 0, comm);
+      MPI_Bcast(&driver->maxEig, 1, MPI_DOUBLE, 0, comm);
+      MPI_Bcast(&driver->maxLocked, 1, MPI_INT, 0, comm);
+
+      MPI_Bcast(&driver->AFilter.filter, 1, MPI_INT, 0, comm);
+      MPI_Bcast(&driver->AFilter.degrees, 1, MPI_INT, 0, comm);
+      MPI_Bcast(&driver->AFilter.lowerBound, 1, MPI_INT, 0, comm);
+      MPI_Bcast(&driver->AFilter.upperBound, 1, MPI_INT, 0, comm);
+      MPI_Bcast(&driver->AFilter.lowerBoundFix, 1, MPI_DOUBLE, 0, comm);
+      MPI_Bcast(&driver->AFilter.upperBoundFix, 1, MPI_DOUBLE, 0, comm);
+      MPI_Bcast(&driver->AFilter.checkEps, 1, MPI_DOUBLE, 0, comm);
+      MPI_Bcast(&driver->precFilter.filter, 1, MPI_INT, 0, comm);
+      MPI_Bcast(&driver->precFilter.degrees, 1, MPI_INT, 0, comm);
+      MPI_Bcast(&driver->precFilter.lowerBound, 1, MPI_INT, 0, comm);
+      MPI_Bcast(&driver->precFilter.upperBound, 1, MPI_INT, 0, comm);
+      MPI_Bcast(&driver->precFilter.lowerBoundFix, 1, MPI_DOUBLE, 0, comm);
+      MPI_Bcast(&driver->precFilter.upperBoundFix, 1, MPI_DOUBLE, 0, comm);
+      MPI_Bcast(&driver->precFilter.checkEps, 1, MPI_DOUBLE, 0, comm);
+      MPI_Bcast(&driver->orthoFilter.filter, 1, MPI_INT, 0, comm);
+      MPI_Bcast(&driver->orthoFilter.degrees, 1, MPI_INT, 0, comm);
+      MPI_Bcast(&driver->orthoFilter.lowerBound, 1, MPI_INT, 0, comm);
+      MPI_Bcast(&driver->orthoFilter.upperBound, 1, MPI_INT, 0, comm);
+      MPI_Bcast(&driver->orthoFilter.lowerBoundFix, 1, MPI_DOUBLE, 0, comm);
+      MPI_Bcast(&driver->orthoFilter.upperBoundFix, 1, MPI_DOUBLE, 0, comm);
+      MPI_Bcast(&driver->transform.filter, 1, MPI_INT, 0, comm);
+      MPI_Bcast(&driver->transform.degrees, 1, MPI_INT, 0, comm);
+      MPI_Bcast(&driver->transform.lowerBound, 1, MPI_INT, 0, comm);
+      MPI_Bcast(&driver->transform.upperBound, 1, MPI_INT, 0, comm);
+      MPI_Bcast(&driver->transform.lowerBoundFix, 1, MPI_DOUBLE, 0, comm);
+      MPI_Bcast(&driver->transform.upperBoundFix, 1, MPI_DOUBLE, 0, comm);
+      MPI_Bcast(&driver->transform.checkEps, 1, MPI_DOUBLE, 0, comm);
    }
 
    MPI_Bcast(&(primme->numEvals), 1, MPI_INT, 0, comm);
@@ -865,6 +921,15 @@ void broadCast(primme_params *primme, primme_preset_method *method,
    }
    for (i=0; i<primme->numTargetShifts; i++) {
       MPI_Bcast(&(primme->targetShifts[i]), 1, MPI_DOUBLE, 0, comm);
+   }
+   MPI_Bcast(&(primme->numBounds), 1, MPI_INT, 0, comm);
+
+   if (primme->numBounds > 0 && !master) {
+      primme->bounds = (double *)primme_calloc(
+         primme->numBounds, sizeof(double), "bounds");
+   }
+   for (i=0; i<primme->numBounds; i++) {
+      MPI_Bcast(&(primme->bounds[i]), 1, MPI_DOUBLE, 0, comm);
    }
    MPI_Bcast(&(primme->locking), 1, MPI_INT, 0, comm);
    MPI_Bcast(&(primme->dynamicMethodSwitch), 1, MPI_INT, 0, comm);
@@ -879,6 +944,7 @@ void broadCast(primme_params *primme, primme_preset_method *method,
    MPI_Bcast(&(primme->eps), 1, MPI_DOUBLE, 0, comm);
    MPI_Bcast(&(primme->printLevel), 1, MPI_INT, 0, comm);
    MPI_Bcast(&(primme->initBasisMode), 1, MPI_INT, 0, comm);
+   MPI_Bcast(&(primme->applyPrecondTo), 1, MPI_INT, 0, comm);
 
    MPI_Bcast(&(primme->projectionParams.projection), 1, MPI_INT, 0, comm);
    MPI_Bcast(&(primme->restartingParams.scheme), 1, MPI_INT, 0, comm);

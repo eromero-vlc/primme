@@ -666,17 +666,10 @@ static int apply_skew_projector(double *Q, double *Qhat, double *UDU,
 
 static void apply_projected_matrix(double *v, double shift, double *Q, 
    int dimQ, double *result, double *rwork, primme_params *primme) {
-   double t0;           /* Time */
    
 
-<<<<<<< HEAD
-   t0 = primme_wTimer(0);
-   (*primme->matrixMatvec)(v, result, &ONE, primme);
-   primme->stats.elapsedTimeMatvec += primme_wTimer(0) - t0;
-=======
    matrixMatvec_dprimme(v, primme->nLocal, primme->nLocal, result,
          primme->nLocal, 0, 1, primme);
->>>>>>> master
    Num_axpy_dprimme(primme->nLocal, -shift, v, 1, result, 1); 
    if (dimQ > 0)
       apply_projector(Q, dimQ, result, rwork, primme); 

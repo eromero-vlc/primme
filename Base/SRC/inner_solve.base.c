@@ -742,7 +742,6 @@ static int apply_skew_projector(@(type) *Q, @(type) *Qhat, @(type) *UDU,
 
 static void apply_projected_matrix(@(type) *v, double shift, @(type) *Q, 
    int dimQ, @(type) *result, @(type) *rwork, primme_params *primme) {
-   double t0;           /* Time */
    
 #ifdefarithm L_DEFCPLX
    @(type) ztmp; 

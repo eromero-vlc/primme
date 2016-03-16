@@ -945,7 +945,7 @@ int prepare_candidates_@(pre)primme(@(type) *V, @(type) *W, int nLocal, int basi
       /* Find next candidates, starting from iev(*blockSize)+1 */
 
       blki = *blockSize;
-      for (i=blki>0 ? iev[blki]+1 : 0; i<basisSize && blki < maxBlockSize; i++)
+      for (i=blki>0 ? iev[blki-1]+1 : 0; i<basisSize && blki < maxBlockSize; i++)
          if (flags[i] == UNCONVERGED) iev[blki++] = i;
 
       /* If no new candidates or all required solutions converged yet, go out */

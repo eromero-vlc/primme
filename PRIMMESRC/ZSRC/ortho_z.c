@@ -189,8 +189,10 @@ int ortho_zprimme(Complex_Z *basis, int ldBasis, Complex_Z *R, int ldR,
          if (nOrth == 1) {
             ztmp = Num_dot_zprimme(nLocal, &basis[ldBasis*i], 1, 
                                            &basis[ldBasis*i], 1);
-         } else
+         }
+         else if (primme) {
             primme->stats.numReorthos++;
+         }
             
          if (i > 0) {
             Num_gemv_zprimme("C", nLocal, i, tpone, basis, ldBasis, 
@@ -206,25 +208,22 @@ int ortho_zprimme(Complex_Z *basis, int ldBasis, Complex_Z *R, int ldR,
          overlaps = &rwork[i+numLocked+1];
          /* In Complex, the size of the array to globalSum is twice as large */
          count = 2*(i + numLocked + 1);
-<<<<<<< HEAD
-         (*primme->globalSumDouble)(rwork, overlaps, &count, primme);
-         if (primme->printLevel > 3 && nOrth == 1 ) {
-             { double norm0; int j;
-             fprintf(stderr, "ORTH ===\n");
-             for (j=0; j<numLocked; j++) fprintf(stderr, "ORTH %g\n", ABS(overlaps[i+j])/sqrt(ABS(ztmp)));
-             fprintf(stderr, "ORTH ...\n");
-             for (j=0, norm0=0; j<numLocked; norm0+=ABS(overlaps[i+j])*ABS(overlaps[i+j]), j++);
-             printf("ORTHN: %g ", sqrt(norm0/ABS(ztmp)));
-             for (j=0, norm0=0; j<i; norm0+=ABS(overlaps[j])*ABS(overlaps[j]), j++);
-             printf("%g\n", sqrt(norm0/ABS(ztmp))); }
-=======
          (primme ? primme->globalSumDouble : primme_seq_globalSumDouble)
             (rwork, overlaps, &count, primme);
 
          if (R != NULL) {
              Num_axpy_zprimme(i + numLocked + 1, tpone, overlaps, 1, 
                 &R[ldR*i], 1);
->>>>>>> master
+         }
+         if (primme && primme->printLevel > 3 && nOrth == 1) {
+             double norm0; int j;
+             fprintf(stderr, "ORTH ===\n");
+             for (j=0; j<numLocked; j++) fprintf(stderr, "ORTH %g\n", ABS(overlaps[i+j])/sqrt(ABS(ztmp)));
+             fprintf(stderr, "ORTH ...\n");
+             for (j=0, norm0=0; j<numLocked; norm0+=ABS(overlaps[i+j])*ABS(overlaps[i+j]), j++);
+             printf("ORTHN: %g ", sqrt(norm0/ABS(ztmp)));
+             for (j=0, norm0=0; j<i; norm0+=ABS(overlaps[j])*ABS(overlaps[j]), j++);
+             printf("%g\n", sqrt(norm0/ABS(ztmp)));
          }
 
          if (numLocked > 0) { /* locked array most recently accessed */
@@ -303,12 +302,9 @@ int ortho_zprimme(Complex_Z *basis, int ldBasis, Complex_Z *R, int ldR,
          } 
  
       }
-      primme->stats.numColumnsOrtho += i + numLocked;
+      if (primme) primme->stats.numColumnsOrtho += i + numLocked;
    }
-<<<<<<< HEAD
-   primme->stats.elapsedTimeOrtho += primme_wTimer(0) - t0;
-=======
->>>>>>> master
+   if (primme) primme->stats.elapsedTimeOrtho += primme_wTimer(0) - t0;
  
    return 0;
 }

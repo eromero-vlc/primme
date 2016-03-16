@@ -189,3 +189,65 @@ int createInvNormalPrecRSB(blas_sparse_matrix matrix, double shift, double **pre
    *prec = diag;
    return 1;
 }
+
+/******************************************************************************
+ * Applies the (already inverted) diagonal preconditioner
+ *
+ *    y(i) = P*x(i), i=1:blockSize, 
+ *    with P = (Diag(A)-shift)^(-1)
+ *
+******************************************************************************/
+
+void ApplyInvDiagPrecRSB(void *x, void *y, int *blockSize, primme_params *primme) {
+
+   /* Build preconditioner */
+   if (primme->rebuildPreconditioner) {
+      PRIMME_NUM shift;
+      if (primme->numberOfShiftsForPreconditioner == 1) {
+         shift = primme->ShiftsForPreconditioner[0];
+      #ifdef USE_DOUBLECOMPLEX
+      } else if (primme->numberOfShiftsForPreconditioner == -1) {
+         shift = ((PRIMME_NUM*)primme->ShiftsForPreconditioner)[0];
+      #endif
+      } else {
+         assert(0);
+      }
+      if (primme->preconditioner) free(primme->preconditioner);
+      createInvDiagPrecRSB(matrix, shift, (PRIMME_NUM**)&primme->preconditioner);
+   }
+   if (!x) return;
+
+   ApplyInvDiagPrecNativeGen((PRIMME_NUM*)x, primme->nLocal, (PRIMME_NUM*)y, primme->nLocal,
+      primme->nLocal, *blockSize, (double*)primme->preconditioner, NULL, primme->aNorm);
+
+}
+
+/******************************************************************************
+ * Applies a Davidson type preconditioner
+ *
+ *    x(i) = (Diag(A) - primme.Shifts(i) I)^(-1) * y(i),   i=1:blockSize
+ *    
+ * NOTE that each block vector may have its own shift provided by dprimme
+ * in the array primme->ShiftsForPreconditioner
+ *
+ * To avoid division with too small numbers we limit how small relatively 
+ * to ||A|| the denominators can be. In the absense of ||A|| we use 1e-14.
+ *
+******************************************************************************/
+
+void ApplyInvDavidsonDiagPrecRSB(void *x, void *y, int *blockSize, 
+                                        primme_params *primme) {
+
+   /* Build preconditioner */
+   if (primme->rebuildPreconditioner) {
+      if (primme->preconditioner) free(primme->preconditioner);
+      createInvDiagPrecRSB(matrix, 0.0, &(double*)primme->preconditioner);
+   }
+   if (!x) return;
+
+   ApplyInvDiagPrecNativeGen((PRIMME_NUM*)x, primme->nLocal, (PRIMME_NUM*)y, primme->nLocal,
+      primme->nLocal, *blockSize, (double*)primme->preconditioner,
+      primme->ShiftsForPreconditioner, primme->aNorm);
+}
+
+

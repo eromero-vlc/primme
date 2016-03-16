@@ -249,19 +249,7 @@ int main_iter_dprimme(double *evals, int *perm, double *evecs,
    LockingProblem = 0;
 
    numPrevRetained = 0;
-<<<<<<< HEAD
-   blockSize = primme->maxBlockSize; 
-   ievMax = primme->maxBlockSize;      
-
-   for (i=0; i < primme->maxBlockSize; i++) {
-      iev[i] = i;
-   }
-   for (i=0; i < primme->numEvals; i++) {
-      perm[i] = i;
-   }
-=======
    blockSize = 0; 
->>>>>>> master
 
    /* ---------------------------------------- */
    /* Set the tolerance for the residual norms */
@@ -693,13 +681,8 @@ int main_iter_dprimme(double *evals, int *perm, double *evecs,
          /* If all of the target eigenvalues have been computed, */
          /* then return success, else return with a failure.     */
  
-<<<<<<< HEAD
          if (numConverged == primme->numEvals || converged) {
-            if (primme->aNorm <= 0.0L) primme->aNorm = largestRitzValue;
-=======
-         if (numConverged == primme->numEvals) {
             if (primme->aNorm <= 0.0L) primme->aNorm = primme->stats.estimateMaxEVal;
->>>>>>> master
             return 0;
          }
          else {
@@ -957,7 +940,7 @@ int prepare_candidates_dprimme(double *V, double *W, int nLocal, int basisSize,
       /* Find next candidates, starting from iev(*blockSize)+1 */
 
       blki = *blockSize;
-      for (i=blki>0 ? iev[blki]+1 : 0; i<basisSize && blki < maxBlockSize; i++)
+      for (i=blki>0 ? iev[blki-1]+1 : 0; i<basisSize && blki < maxBlockSize; i++)
          if (flags[i] == UNCONVERGED) iev[blki++] = i;
 
       /* If no new candidates or all required solutions converged yet, go out */
@@ -1190,7 +1173,6 @@ static int verify_norms(double *V, double *W, double *hVecs,
    return converged;
 }
 
-<<<<<<< HEAD
 static int check_evalue_inbounds(double eval, double s, primme_params *primme)
 {
    int i,j;
@@ -1219,7 +1201,6 @@ static int check_evalue_inbounds(double eval, double s, primme_params *primme)
    return 0;
 }
 
-=======
 /*******************************************************************************
  * Subroutine print_residuals - This function displays the residual norms of 
  *    each Ritz vector computed at this iteration.
@@ -1262,7 +1243,6 @@ static void print_residuals(double *ritzValues, double *blockNorms,
 }
 
 
->>>>>>> master
 /******************************************************************************
            Dynamic Method Switching uses the following functions 
     ---------------------------------------------------------------------

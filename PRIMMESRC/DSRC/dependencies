@@ -5,7 +5,7 @@ convergence_d.o: convergence_d.c ../COMMONSRC/primme.h \
 correction_d.o: correction_d.c ../COMMONSRC/primme.h \
  ../COMMONSRC/Complexz.h ../COMMONSRC/const.h correction_d.h \
  correction_private_d.h inner_solve_d.h numerical_d.h \
- ../COMMONSRC/common_numerical.h
+ ../COMMONSRC/common_numerical.h ../COMMONSRC/wtime.h
 factorize_d.o: factorize_d.c ../COMMONSRC/primme.h \
  ../COMMONSRC/Complexz.h factorize_d.h numerical_d.h \
  ../COMMONSRC/common_numerical.h
@@ -32,7 +32,8 @@ numerical_d.o: numerical_d.c numerical_private_d.h \
  ../COMMONSRC/common_numerical.h numerical_d.h ../COMMONSRC/primme.h \
  ../COMMONSRC/Complexz.h
 ortho_d.o: ortho_d.c ../COMMONSRC/primme.h ../COMMONSRC/Complexz.h \
- numerical_d.h ../COMMONSRC/common_numerical.h ortho_d.h
+ numerical_d.h ../COMMONSRC/common_numerical.h ortho_d.h \
+ ../COMMONSRC/wtime.h
 primme_d.o: primme_d.c ../COMMONSRC/primme.h ../COMMONSRC/Complexz.h \
  ../COMMONSRC/const.h ../COMMONSRC/wtime.h main_iter_d.h init_d.h \
  ortho_d.h solve_H_d.h restart_d.h locking_d.h correction_d.h \
@@ -41,12 +42,14 @@ primme_d.o: primme_d.c ../COMMONSRC/primme.h ../COMMONSRC/Complexz.h \
 restart_d.o: restart_d.c ../COMMONSRC/primme.h ../COMMONSRC/Complexz.h \
  ../COMMONSRC/const.h restart_d.h restart_private_d.h locking_d.h \
  ortho_d.h solve_H_d.h factorize_d.h update_projection_d.h update_W_d.h \
- convergence_d.h numerical_d.h ../COMMONSRC/common_numerical.h
+ convergence_d.h numerical_d.h ../COMMONSRC/common_numerical.h \
+ ../COMMONSRC/wtime.h
 solve_H_d.o: solve_H_d.c ../COMMONSRC/primme.h ../COMMONSRC/Complexz.h \
  solve_H_d.h solve_H_private_d.h numerical_d.h \
- ../COMMONSRC/common_numerical.h ortho_d.h
+ ../COMMONSRC/common_numerical.h ../COMMONSRC/wtime.h ortho_d.h
 update_projection_d.o: update_projection_d.c ../COMMONSRC/primme.h \
  ../COMMONSRC/Complexz.h ../COMMONSRC/const.h update_projection_d.h \
  numerical_d.h ../COMMONSRC/common_numerical.h
 update_W_d.o: update_W_d.c ../COMMONSRC/primme.h ../COMMONSRC/Complexz.h \
- update_W_d.h ortho_d.h numerical_d.h ../COMMONSRC/common_numerical.h
+ update_W_d.h ortho_d.h numerical_d.h ../COMMONSRC/common_numerical.h \
+ ../COMMONSRC/wtime.h

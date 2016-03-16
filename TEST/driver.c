@@ -97,22 +97,9 @@ PetscLogEvent PRIMME_GLOBAL_SUM;
 
 static int real_main (int argc, char *argv[]);
 static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int **permutation);
-#ifdef USE_MPI
-static void broadCast(primme_params *primme, primme_preset_method *method, 
-   driver_params *driver, int master, MPI_Comm comm);
-static void par_GlobalSumDouble(void *sendBuf, void *recvBuf, int *count, 
-                         primme_params *primme);
-#endif
 static void setFilters(driver_params *driver, primme_params *primme);
 static void unsetFilters(double *evals, PRIMME_NUM *evecs, double *rnorms, primme_params *primme);
-static int check_solution(const char *checkXFileName, primme_params *primme, double *evals,
-                          PRIMME_NUM *evecs, double *rnorms, int *perm);
 static int destroyMatrixAndPrecond(driver_params *driver, primme_params *primme, int *permutation);
-static int writeBinaryEvecsAndPrimmeParams(const char *fileName, PRIMME_NUM *X, int *perm,
-                                           primme_params *primme);
-static int readBinaryEvecsAndPrimmeParams(const char *fileName, PRIMME_NUM *X, PRIMME_NUM **Xout,
-                                          int n, int Xcols, int *Xcolsout, int nLocal,
-                                          int *perm, primme_params *primme);
 static int primmew(double *evals, PRIMME_NUM *evecs, double *rnorms, primme_params *primme);
 static int spectrum_slicing(double *evals, PRIMME_NUM *evecs, double *rnorms, primme_params *primme,
                             int maxNumEvals, int *perm);
@@ -227,7 +214,7 @@ static int real_main (int argc, char *argv[]) {
       /* Read in the PRIMME configuration file   */
       /* --------------------------------------- */
       if (read_solver_params(SolverConfigFileName, driver.outputFileName, 
-                           &primme, "primme.", &method, "method") < 0) {
+                           primme, "primme.", &method, "method") < 0) {
          fprintf(stderr, "Reading solver parameters failed\n");
          return(-1);
       }
@@ -249,7 +236,7 @@ static int real_main (int argc, char *argv[]) {
    /* --------------------------------------- */
    /* Pick one of the default methods(if set) */
    /* --------------------------------------- */
-   primme_set_method(method, &primme);
+   primme_set_method(method, primme);
 
 #ifdef USE_MPI
    /* ------------------------------------------------- */
@@ -263,7 +250,7 @@ static int real_main (int argc, char *argv[]) {
    /* Optional: report memory requirements    */
    /* --------------------------------------- */
 
-   ret = PREFIX(primme)(NULL,NULL,NULL,&primme);
+   ret = PREFIX(primme)(NULL,NULL,NULL,primme);
    if (master) {
       fprintf(primme->outputFile,"PRIMME will allocate the following memory:\n");
       fprintf(primme->outputFile," processor %d, real workspace, %ld bytes\n",
@@ -281,7 +268,7 @@ static int real_main (int argc, char *argv[]) {
    if (master) {
       driver_display_params(driver, primme->outputFile); 
       primme_display_params(*primme);
-      driver_display_method(method, "method", primme.outputFile);
+      driver_display_method(method, "method", primme->outputFile);
    }
 
 
@@ -495,8 +482,7 @@ static int setMatrixAndPrecond(driver_params *driver, primme_params *primme, int
       *(MPI_Comm*)primme->commInfo = MPI_COMM_WORLD;
 #  endif
       {
-         CSRMatrix *matrix, *prec;
-         double *diag;
+         CSRMatrix *matrix;
          /* Fix to use a single thread */
          #ifdef _OPENMP
          omp_set_num_threads(1);

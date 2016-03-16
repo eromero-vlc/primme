@@ -134,7 +134,7 @@ void CSRMatrixMatvecSVD(void *x, int *ldx, void *y, int *ldy, int *blockSize,
 
 static int createInvDiagPrecNative(const CSRMatrix *matrix, PRIMME_NUM shift, PRIMME_NUM **prec) {
    int i;
-   double *diag;
+   PRIMME_NUM *diag;
 
    diag = (PRIMME_NUM*)primme_calloc(matrix->n, sizeof(PRIMME_NUM), "diag");
    getDiagonal(matrix, diag);
@@ -145,7 +145,7 @@ static int createInvDiagPrecNative(const CSRMatrix *matrix, PRIMME_NUM shift, PR
 }
 
 static void ApplyInvDiagPrecNativeGen(PRIMME_NUM *xvec, int ldx, PRIMME_NUM *yvec,
-      int ldy, int nLocal, int bs, double *diag, double *shifts, double aNorm) {
+      int ldy, int nLocal, int bs, PRIMME_NUM *diag, double *shifts, double aNorm) {
    int i, j;
    const double minDenominator = 1e-14*(aNorm >= 0.0L ? aNorm : 1.);
 
@@ -155,8 +155,13 @@ static void ApplyInvDiagPrecNativeGen(PRIMME_NUM *xvec, int ldx, PRIMME_NUM *yve
       #pragma omp parallel for
       #endif
       for (j=0; j<nLocal; j++) {
-         double d = diag[j] - shift;
-         d = (fabs(d) > minDenominator) ? d : copysign(minDenominator, d);
+         PRIMME_NUM d = diag[j] - shift;
+         if (ABS(d) < minDenominator) {
+            if (d != 0.0)
+               d = d/ABS(d)*minDenominator;
+            else
+               d = copysign(minDenominator, REAL_PART(d));
+         }
          yvec[ldy*i+j] = xvec[ldx*i+j]/d;
       }
    }
@@ -164,8 +169,27 @@ static void ApplyInvDiagPrecNativeGen(PRIMME_NUM *xvec, int ldx, PRIMME_NUM *yve
 
 
 void ApplyInvDiagPrecNative(void *x, void *y, int *blockSize, primme_params *primme) {
+
+   /* Build preconditioner */
+   if (primme->rebuildPreconditioner) {
+      PRIMME_NUM shift;
+      if (primme->numberOfShiftsForPreconditioner == 1) {
+         shift = primme->ShiftsForPreconditioner[0];
+      #ifdef USE_DOUBLECOMPLEX
+      } else if (primme->numberOfShiftsForPreconditioner == -1) {
+         shift = ((PRIMME_NUM*)primme->ShiftsForPreconditioner)[0];
+      #endif
+      } else {
+         assert(0);
+      }
+      if (primme->preconditioner) free(primme->preconditioner);
+      createInvDiagPrecNative(primme->matrix, shift, (PRIMME_NUM**)&primme->preconditioner);
+   }
+   if (!x) return;
+
    ApplyInvDiagPrecNativeGen((PRIMME_NUM*)x, primme->nLocal, (PRIMME_NUM*)y, primme->nLocal,
-      primme->nLocal, *blockSize, (double*)primme->preconditioner, NULL, primme->aNorm);
+      primme->nLocal, *blockSize, (PRIMME_NUM*)primme->preconditioner, NULL, primme->aNorm);
+
 }
 
 /******************************************************************************
@@ -183,8 +207,16 @@ void ApplyInvDiagPrecNative(void *x, void *y, int *blockSize, primme_params *pri
 
 void ApplyInvDavidsonDiagPrecNative(void *x, void *y, int *blockSize, 
                                         primme_params *primme) {
+
+   /* Build preconditioner */
+   if (primme->rebuildPreconditioner) {
+      if (primme->preconditioner) free(primme->preconditioner);
+      createInvDiagPrecNative(primme->matrix, 0.0, (PRIMME_NUM**)&primme->preconditioner);
+   }
+   if (!x) return;
+
    ApplyInvDiagPrecNativeGen((PRIMME_NUM*)x, primme->nLocal, (PRIMME_NUM*)y, primme->nLocal,
-      primme->nLocal, *blockSize, (double*)primme->preconditioner,
+      primme->nLocal, *blockSize, (PRIMME_NUM*)primme->preconditioner,
       primme->ShiftsForPreconditioner, primme->aNorm);
 }
 
@@ -363,9 +395,9 @@ static void getDiagonal(const CSRMatrix *matrix, PRIMME_NUM *diag) {
  * Generates sum of square values per rows and then per columns 
  *
 ******************************************************************************/
-static void getSumSquares(const CSRMatrix *matrix, double *diag) {
+static void getSumSquares(const CSRMatrix *matrix, PRIMME_NUM *diag) {
    int i, j;
-   double *sumr = diag, *sumc = &diag[matrix->m], v;
+   PRIMME_NUM *sumr = diag, *sumc = &diag[matrix->m];
 
    for (i=0; i < matrix->m + matrix->n; i++) {
       diag[i] = 0.0;
@@ -377,7 +409,7 @@ static void getSumSquares(const CSRMatrix *matrix, double *diag) {
 
    for (i=0; i < matrix->m; i++) {
       for (j=matrix->IA[i]; j <= matrix->IA[i+1]-1; j++) {
-         v = REAL_PART(matrix->AElts[j-1]*CONJ(matrix->AElts[j-1]));
+         double v = REAL_PART(matrix->AElts[j-1]*CONJ(matrix->AElts[j-1]));
          sumr[i]   += v;
          sumc[matrix->JA[j-1]-1] += v;
       }
@@ -390,16 +422,14 @@ static void getSumSquares(const CSRMatrix *matrix, double *diag) {
  *
 ******************************************************************************/
 
-int createInvNormalPrecNative(const CSRMatrix *matrix, double shift, double **prec) {
+int createInvNormalPrecNative(const CSRMatrix *matrix, double shift, PRIMME_NUM **prec) {
    int i;
-   double *diag, minDenominator=1e-14;
+   PRIMME_NUM *diag;
 
-   diag = (double*)primme_calloc(matrix->m+matrix->n, sizeof(double), "diag");
+   diag = (PRIMME_NUM*)primme_calloc(matrix->m+matrix->n, sizeof(PRIMME_NUM), "diag");
    getSumSquares(matrix, diag);
    for (i=0; i<matrix->m+matrix->n; i++) {
       diag[i] -= shift*shift;
-      if (fabs(diag[i]) < minDenominator)
-         diag[i] = copysign(minDenominator, diag[i]);
    }
    *prec = diag;
    return 1;
@@ -407,10 +437,10 @@ int createInvNormalPrecNative(const CSRMatrix *matrix, double shift, double **pr
 
 static void ApplyInvNormalPrecNativeSvdsGen(void *x, int *ldx, void *y, int *ldy, int *blockSize,
                                  int *mode, primme_svds_params *primme_svds, double *shifts) {
-   double *diag = (double *)primme_svds->preconditioner;
+   PRIMME_NUM *diag = (PRIMME_NUM *)primme_svds->preconditioner;
    PRIMME_NUM *xvec = (PRIMME_NUM *)x, *yvec = (PRIMME_NUM *)y;
    const int bs = *blockSize;
-   double *sumr = diag, *sumc = &diag[primme_svds->mLocal];
+   PRIMME_NUM *sumr = diag, *sumc = &diag[primme_svds->mLocal];
    
    if (*mode == primme_svds_op_AtA) {
       ApplyInvDiagPrecNativeGen(xvec, *ldx, yvec, *ldy, primme_svds->nLocal, bs,

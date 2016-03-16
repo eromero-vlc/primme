@@ -613,6 +613,15 @@ void primme_display_params_prefix(const char* prefix, primme_params primme) {
       fprintf(outputFile, "\n");
    }
 
+   PRINT(numBounds, %d);
+   if (primme.numBounds > 0 && primme.bounds) {
+      fprintf(outputFile, "%s.bounds =", prefix);
+      for (i=0; i<primme.numBounds;i++) {
+         fprintf(outputFile, " %e",primme.bounds[i]);
+      }
+      fprintf(outputFile, "\n");
+   }
+
    PRINT(dynamicMethodSwitch, %d);
    PRINT(locking, %d);
    PRINT(initSize, %d);
@@ -647,6 +656,11 @@ void primme_display_params_prefix(const char* prefix, primme_params primme) {
    PRINTParams(correction, projectors.SkewQ , %d);
    PRINTParams(correction, projectors.RightX, %d);
    PRINTParams(correction, projectors.SkewX , %d);
+
+   PRINTIF(applyPrecondTo, primme_r);
+   PRINTIF(applyPrecondTo, primme_x);
+   PRINTIF(applyPrecondTo, primme_lastv);
+
    fprintf(outputFile, "// ---------------------------------------------------\n");
 
 #undef PRINT

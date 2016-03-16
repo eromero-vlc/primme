@@ -126,10 +126,6 @@ int init_basis_dprimme(double *V, int nLocal, int ldV, double *W, int ldW,
    double *timeForMV, primme_params *primme) {
 
    int ret;          /* Return value                              */
-<<<<<<< HEAD
-   int currentSize;
-   double t0;           /* Time */
-=======
    int i;
    int initSize;
    int random;
@@ -149,7 +145,6 @@ int init_basis_dprimme(double *V, int nLocal, int ldV, double *W, int ldW,
                NULL, 0, primme->numOrthoConst, nLocal, 
                NULL, 0.0, NULL, 0, primme));
    }
->>>>>>> master
 
    /*-----------------------------------------------------------------------*/
    /* Orthogonalize the orthogonalization constraints provided by the user. */
@@ -178,14 +173,7 @@ int init_basis_dprimme(double *V, int nLocal, int ldV, double *W, int ldW,
 
       if (UDU != NULL) {
 
-<<<<<<< HEAD
-         t0 = primme_wTimer(0);
-         (*primme->applyPreconditioner)
-            (evecs, evecsHat, &primme->numOrthoConst, primme); 
-         primme->stats.elapsedTimePrecond += primme_wTimer(0) - t0;
-=======
          primme->applyPreconditioner(evecs, evecsHat, &primme->numOrthoConst, primme); 
->>>>>>> master
          primme->stats.numPreconds += primme->numOrthoConst;
 
          update_projection_dprimme(evecs, ldevecs, evecsHat, ldevecsHat, M,
@@ -322,12 +310,7 @@ static int init_block_krylov(double *V, int nLocal, int ldV, double *W,
    int i;               /* Loop variables */
    int numNewVectors;   /* Number of vectors to be generated */
    int ret;             /* Return code.                      */  
-<<<<<<< HEAD
-   int ONE = 1;         /* Used for passing it by reference in matrixmatvec */
-   double t0;           /* Time */
-=======
    int blockSize;       /* blockSize used in practice */
->>>>>>> master
    
    numNewVectors = dv2 - dv1 + 1;
 
@@ -339,32 +322,6 @@ static int init_block_krylov(double *V, int nLocal, int ldV, double *W,
 
    blockSize = numNewVectors <= primme->maxBlockSize ? 1 : primme->maxBlockSize;
 
-<<<<<<< HEAD
-      for (i = dv1; i < dv2; i++) {
-         t0 = primme_wTimer(0);
-         (*primme->matrixMatvec)
-           (&V[primme->nLocal*i], &V[primme->nLocal*(i+1)], &ONE, primme);
-         primme->stats.elapsedTimeMatvec += primme_wTimer(0) - t0;
-         Num_dcopy_dprimme(primme->nLocal, &V[primme->nLocal*(i+1)], 1,
-            &W[primme->nLocal*i], 1);
-         ret = ortho_dprimme(V, primme->nLocal, i+1, i+1, locked, 
-            primme->nLocal, numLocked, primme->nLocal, primme->iseed, machEps,
-            rwork, rworkSize, primme);
-      
-         if (ret < 0) {
-            primme_PushErrorMessage(Primme_init_block_krylov, Primme_ortho, 
-                            ret, __FILE__, __LINE__, primme);
-            return ORTHO_FAILURE;
-         }
-      }
-
-      primme->stats.numMatvecs += dv2-dv1;
-      update_W_dprimme(V, W, dv2, 1, primme);
-
-   }
-   else {
-=======
->>>>>>> master
    /*----------------------------------------------------------------------*/
    /* Generate the initial vectors.                                        */
    /*----------------------------------------------------------------------*/
@@ -378,17 +335,7 @@ static int init_block_krylov(double *V, int nLocal, int ldV, double *W,
       dv1+blockSize-1, locked, ldlocked, numLocked, 
       nLocal, primme->iseed, machEps, rwork, rworkSize, primme);
 
-<<<<<<< HEAD
-      for (i = dv1+primme->maxBlockSize; i <= dv2; i++) {
-         t0 = primme_wTimer(0);
-         (*primme->matrixMatvec)(&V[primme->nLocal*(i-primme->maxBlockSize)], 
-            &V[primme->nLocal*i], &ONE, primme);
-         primme->stats.elapsedTimeMatvec += primme_wTimer(0) - t0;
-         Num_dcopy_dprimme(primme->nLocal, &V[primme->nLocal*i], 1,
-            &W[primme->nLocal*(i-primme->maxBlockSize)], 1);
-=======
    /* Generate the remaining vectors in the sequence */
->>>>>>> master
 
    for (i = dv1+blockSize; i <= dv2; i++) {
       matrixMatvec_dprimme(&V[ldV*(i-blockSize)], nLocal, ldV, &V[ldV*i],

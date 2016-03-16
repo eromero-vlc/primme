@@ -33,36 +33,6 @@
 #include "num.h"
 #include "ioandtest.h"
 
-static PRIMME_NUM primme_dot(PRIMME_NUM *x, PRIMME_NUM *y, primme_params *primme) {
-   PRIMME_NUM aux, aux0;
-#ifdef USE_DOUBLECOMPLEX
-   int one = 2;
-#else
-   int one = 1;
-#endif
-   aux = COMPLEXV(SUF(Num_dot)(primme->nLocal, COMPLEXZ(x), 1, COMPLEXZ(y), 1));
-   if (primme->globalSumDouble) {
-      primme->globalSumDouble(&aux, &aux0, &one, primme);
-      return aux0;
-   }
-   return aux;
-}
-
-static PRIMME_NUM primme_svds_dot(PRIMME_NUM *x, PRIMME_NUM *y, int trans, primme_svds_params *primme) {
-   PRIMME_NUM aux, aux0;
-#ifdef USE_DOUBLECOMPLEX
-   int one = 2;
-#else
-   int one = 1;
-#endif
-   aux = COMPLEXV(SUF(Num_dot)(trans ? primme->nLocal : primme->mLocal, COMPLEXZ(x), 1, COMPLEXZ(y), 1));
-   if (primme->globalSumDouble) {
-      primme->globalSumDouble(&aux, &aux0, &one, primme);
-      return aux0;
-   }
-   return aux;
-}
-
 #undef __FUNCT__
 #define __FUNCT__ "check_solution"
 int check_solution(const char *checkXFileName, primme_params *primme, double *evals,

@@ -133,7 +133,6 @@ typedef struct primme_stats {
    int numMatvecs;
    double elapsedTimeMatvec;
    int numPreconds;
-<<<<<<< HEAD
    double elapsedTime;
    int numReorthos; 
    double elapsedTimeOrtho;
@@ -143,13 +142,10 @@ typedef struct primme_stats {
    double currentEigResidual;
    double elapsedTimePrecond;
    double elapsedTimeSolveH;
-=======
-   double elapsedTime; 
    double estimateMinEVal;          /* the leftmost Ritz value seen */
    double estimateMaxEVal;          /* the rightmost Ritz value seen */
    double estimateLargestSVal;      /* absolute value of the farthest to zero Ritz value seen */
    double maxConvTol;               /* largest norm residual of a locked eigenpair */
->>>>>>> master
 } primme_stats;
 
 typedef struct JD_projectors {
@@ -237,7 +233,6 @@ typedef struct primme_params {
    void *matrix;
    void *preconditioner;
    double *ShiftsForPreconditioner;
-<<<<<<< HEAD
    double RitzValuesForPreconditioner[7];
    int rebuildPreconditioner;
    int numberOfShiftsForPreconditioner;
@@ -247,9 +242,7 @@ typedef struct primme_params {
    /* Actually problem matrix */
    void (*matrixMatvecOrig)
       ( void *x,  void *y, int *blockSize, struct primme_params *primme);
-=======
    primme_init initBasisMode;
->>>>>>> master
 
    struct projection_params projectionParams; 
    struct restarting_params restartingParams;
@@ -257,13 +250,9 @@ typedef struct primme_params {
    struct primme_stats stats;
    struct stackTraceNode *stackTrace;
 
-<<<<<<< HEAD
    primme_applyPrecondTo applyPrecondTo;
-   
-=======
    void (*convTestFun)(double *eval, void *evec, double *rNorm, int *isconv, 
          struct primme_params *primme);
->>>>>>> master
 } primme_params;
 /*---------------------------------------------------------------------------*/
 

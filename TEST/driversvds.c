@@ -449,7 +449,7 @@ static int setMatrixAndPrecond(driver_params *driver,
 #  endif
       {
          CSRMatrix *matrix;
-         double *diag;
+         PRIMME_NUM *diag;
          /* Fix to use a single thread */
          #ifdef _OPENMP
          omp_set_num_threads(1);
@@ -476,8 +476,8 @@ static int setMatrixAndPrecond(driver_params *driver,
             primme_svds->preconditioner = diag;
             primme_svds->applyPreconditioner = ApplyInvDavidsonNormalPrecNative;
             break;
-         case driver_ilut:
-            fprintf(stderr, "ERROR: ilut preconditioner is not supported with NATIVE, use other!\n");
+         default:
+            fprintf(stderr, "ERROR: driver.PrecChoice value not supported with NATIVE, use other!\n");
             return -1;
          }
       }
@@ -576,6 +576,9 @@ static int setMatrixAndPrecond(driver_params *driver,
                primme_svds->preconditioner = pc;
                primme_svds->applyPreconditioner = ApplyPCPrecPETSCSVD;
             }
+         default:
+            fprintf(stderr, "ERROR: driver.PrecChoice value not supported with PETSc, use other!\n");
+            return -1;
          }
       }
 #endif
@@ -657,6 +660,8 @@ static int destroyMatrixAndPrecond(driver_params *driver, primme_svds_params *pr
          break;
       case driver_ilut:
          break;
+      default:
+         assert(0);
       }
 #endif
       break;

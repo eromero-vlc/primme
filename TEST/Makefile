@@ -6,7 +6,8 @@ include ../Link_flags
 #------------------------------------------------
 
 
-SOBJS= driver.o COMMON/shared_utils.o COMMON/filters.o COMMON/costmodels.o COMMON/ioandtest.o
+SOBJS= COMMON/shared_utils.o COMMON/filters.o \
+       COMMON/costmodels.o COMMON/ioandtest.o COMMON/num.o
 COMMON_INCLUDE = -I./COMMON -I../PRIMMESRC/COMMONSRC -I../PRIMMESRC/SVDS/COMMONSRC
 override INCLUDE += $(COMMON_INCLUDE)
 LIBDIRS += -L../

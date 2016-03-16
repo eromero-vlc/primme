@@ -50,14 +50,11 @@ static int verify_norms(Complex_Z *V, Complex_Z *W, Complex_Z *hVecs, double *hV
    int basisSize, double *resNorms, int *flag, double tol, double aNormEstimate,
    void *rwork, int *numConverged, primme_params *primme);
 
-<<<<<<< HEAD
 static int check_evalue_inbounds(double eval, double s, primme_params *primme);
-=======
 static void print_residuals(double *ritzValues, double *blockNorms,
    int numConverged, int numLocked, int *iev, int blockSize, 
    primme_params *primme);
 
->>>>>>> master
 
 /*----------------------------------------------------------------------------*
  * The following are needed for the Dynamic Method Switching

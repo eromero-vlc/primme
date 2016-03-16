@@ -681,18 +681,11 @@ static int apply_skew_projector(Complex_Z *Q, Complex_Z *Qhat, Complex_Z *UDU,
 
 static void apply_projected_matrix(Complex_Z *v, double shift, Complex_Z *Q, 
    int dimQ, Complex_Z *result, Complex_Z *rwork, primme_params *primme) {
-   double t0;           /* Time */
    
    Complex_Z ztmp; 
 
-<<<<<<< HEAD
-   t0 = primme_wTimer(0);
-   (*primme->matrixMatvec)(v, result, &ONE, primme);
-   primme->stats.elapsedTimeMatvec += primme_wTimer(0) - t0;
-=======
    matrixMatvec_zprimme(v, primme->nLocal, primme->nLocal, result,
          primme->nLocal, 0, 1, primme);
->>>>>>> master
    {ztmp.r = -shift; ztmp.i = 0.0L;}
    Num_axpy_zprimme(primme->nLocal, ztmp, v, 1, result, 1); 
    if (dimQ > 0)

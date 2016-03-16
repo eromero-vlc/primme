@@ -141,101 +141,6 @@
  *        -5 flags do not correspond to converged pairs in pseudolocking
  *       
  ******************************************************************************/
-<<<<<<< HEAD
-
-int lock_vectors_dprimme(double tol, double *aNormEstimate, double *maxConvTol, 
-   int *basisSize, int *numLocked, int *numGuesses, int *nextGuess,
-   double *V, double *W, double *H, double *evecsHat, double *M, 
-   double *UDU, int *ipivot, double *hVals, double *hVecs, 
-   double *evecs, double *evals, int *perm, double machEps, 
-   double *resNorms, int *numPrevRitzVals, double *prevRitzVals, 
-   int *flag, double *rwork, int rworkSize, int *iwork, 
-   int *LockingProblem, primme_params *primme) {
-
-   int i;             /* Loop counter                                       */
-   int numCandidates; /* Number of targeted Ritz vectors converged before   */
-                      /* restart.                                           */
-   int newStart;      /* Index in evecs where the locked vectors were added */
-   int numNewVectors; /* Number of vectors added to the basis to replace    */
-                      /* locked vectors.                                    */
-   int candidate;     /* Index of Ritz vector to be checked for convergence */
-   int numDeflated;   /* The number of vectors actually locked              */
-   int numReplaced;   /* The number of locked vectors that were replaced by */
-                      /* initial guesses.                                   */
-   int numRecentlyLocked; /* Number of vectors locked.                      */
-   int evecsSize;     /* The number of orthogonalization constraints plus   */
-                      /* the number of locked vectors.                      */
-   int ret;           /* Used to store return values.                       */
-   int workinW;       /* Flag whether an active W vector is used as tempwork*/
-   int entireSpace = (*basisSize+*numLocked >= primme->n); /* bool if entire*/
-                      /* space is built, so current ritzvecs are accurate.  */
-
-   double *norms, *tnorms; /* Array of residual norms, and temp array       */
-   double attainableTol;   /* Used to verify a practical convergence problem*/
-   double *residual;  /* Stores residual vector                             */
-   double ztmp;       /* temp variable */
-   double t0;           /* Time */
-
-   /* ----------------------------------------*/
-   /* Assign temporary work space for residual*/
-   /* ----------------------------------------*/
-
-   if (*basisSize < primme->maxBasisSize) {
-      /* compute residuals in the next open slot of W */
-      residual = &W[*basisSize*primme->nLocal];
-      workinW = 0;
-   }
-   else {
-      /* This basiSize==maxBasisSize, immediately after restart, can only occur
-       * if the basisSize + numLocked = n (at which case we lock everything)
-       * OR if (numConverged + restartSize + numPrevRetain > basisSize), ie.
-       * too many converged. Since we do not know which evec will be locked
-       * we use the W[LAST] as temporary space, but only after W[LAST] has 
-       * been used to compute residual(LAST) -the while loop starts from LAST.
-       * After all lockings, if the LAST evec was not locked, we must  
-       * recompute W[LAST]=Av. This matvec event is extremely infrequent */
-      residual = &W[(*basisSize-1)*primme->nLocal];
-      workinW = 1;
-   }
-
-   /* -------------------------------------*/
-   /* Set the tolerance, and attainableTol */
-   /* -------------------------------------*/
-   
-   if (primme->aNorm <= 0.0L) {
-      tol = tol * (*aNormEstimate);
-   }
-   attainableTol=max(tol,sqrt(primme->numOrthoConst+*numLocked)*(*maxConvTol));
-
-   /* -------------------------------------------------------- */
-   /* Determine how many Ritz vectors converged before restart */
-   /* -------------------------------------------------------- */
-
-   i = *basisSize - 1;
-   while ((flag[i] == LOCK_IT ||flag[i] == UNCONDITIONAL_LOCK_IT) && i >= 0) {
-      i--;
-   }
-      
-   numCandidates = *basisSize - i - 1;
-
-   if (numCandidates == 0) {
-      return 0;
-   }
-
-   /* --------------------------------- */
-   /* Compute residuals and their norms */
-   /* --------------------------------- */
-
-   tnorms = (double *) rwork;
-   norms  = tnorms + numCandidates;
-
-   for (i = *basisSize-1, candidate = numCandidates-1;  
-      i >= *basisSize-numCandidates; i--, candidate--) {
-      Num_dcopy_dprimme(primme->nLocal, &W[primme->nLocal*i], 1, residual, 1);
-      ztmp = -hVals[i];
-      Num_axpy_dprimme(primme->nLocal, ztmp, &V[primme->nLocal*i],1,residual,1);
-      tnorms[candidate] = Num_dot_dprimme(primme->nLocal,residual,1,residual,1);
-=======
  
 int restart_locking_dprimme(int *restartSize, double *V, double *W,
    int nLocal, int basisSize, int ldV, double **X, double **R, double *hVecs,
@@ -281,7 +186,6 @@ int restart_locking_dprimme(int *restartSize, double *V, double *W,
                nLocal, 0, NULL, 0, NULL, *numLocked, 0, *restartSize,
                *restartSize+*numLocked, NULL, NULL, NULL, 0.0, NULL, 0,
                NULL, primme));
->>>>>>> master
    }
 
    /* ----------------------------------------------------------------------- */
@@ -326,24 +230,6 @@ int restart_locking_dprimme(int *restartSize, double *V, double *W,
          numPacked++;
       }
    }
-<<<<<<< HEAD
-   else if (UDU != NULL) {
-
-      /* Compute K^{-1}x for all newly locked eigenvectors */
-
-      newStart = primme->nLocal*(evecsSize - numRecentlyLocked);
-      t0 = primme_wTimer(0);
-      (*primme->applyPreconditioner)( &evecs[newStart], &evecsHat[newStart], 
-                                    &numRecentlyLocked, primme);
-      primme->stats.elapsedTimePrecond += primme_wTimer(0) - t0;
-      primme->stats.numPreconds += numRecentlyLocked;
-
-      /* Update the projection evecs'*evecsHat now that evecs and evecsHat   */
-      /* have been expanded by numRecentlyLocked columns.  Required          */
-      /* workspace is numLocked*numEvals.  The most ever needed would be     */
-      /* maxBasisSize*numEvals.                                              */
-=======
->>>>>>> master
 
    assert(numPacked == *numConverged-*numLocked);
  

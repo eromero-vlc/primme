@@ -30,12 +30,9 @@
 #include <assert.h>
 #include "primme.h"
 #include "update_W_d.h"
-<<<<<<< HEAD
-#include "wtime.h"
-=======
 #include "ortho_d.h"
 #include "numerical_d.h"
->>>>>>> master
+#include "wtime.h"
 
 
 /*******************************************************************************
@@ -56,17 +53,13 @@
 void matrixMatvec_dprimme(double *V, int nLocal, int ldV, double *W,
    int ldW, int basisSize, int blockSize, primme_params *primme) {
 
-<<<<<<< HEAD
+
+   int i, ONE=1;
    double t0;           /* Time */
 
-   t0 = primme_wTimer(0);
-   (*primme->matrixMatvec)(&V[primme->nLocal*basisSize],
-                         &W[primme->nLocal*basisSize], &blockSize, primme);
-   primme->stats.elapsedTimeMatvec += primme_wTimer(0) - t0;
-=======
-   int i, ONE=1;
-
    if (blockSize <= 0) return;
+
+   t0 = primme_wTimer(0);
 
    /* W(:,c) = A*V(:,c) for c = basisSize:basisSize+blockSize-1 */
    if (ldV == nLocal && ldW == nLocal) {
@@ -79,8 +72,8 @@ void matrixMatvec_dprimme(double *V, int nLocal, int ldV, double *W,
                primme);
       }
    }
->>>>>>> master
 
+   primme->stats.elapsedTimeMatvec += primme_wTimer(0) - t0;
    primme->stats.numMatvecs += blockSize;
 
 }

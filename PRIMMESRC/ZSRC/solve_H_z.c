@@ -32,11 +32,8 @@
 #include "solve_H_z.h"
 #include "solve_H_private_z.h"
 #include "numerical_z.h"
-<<<<<<< HEAD
 #include "wtime.h"
-=======
 #include "ortho_z.h"
->>>>>>> master
 
 /*******************************************************************************
  * Subroutine solve_H - This procedure solves the project problem and return
@@ -74,6 +71,7 @@ int solve_H_zprimme(Complex_Z *H, int basisSize, int ldH, Complex_Z *R, int ldR,
    int numConverged, int lrwork, Complex_Z *rwork, int *iwork, primme_params *primme) {
 
    int i, ret;
+   double t0 = primme_wTimer(0);
 
    switch (primme->projectionParams.projection) {
    case primme_proj_RR:
@@ -101,6 +99,7 @@ int solve_H_zprimme(Complex_Z *H, int basisSize, int ldH, Complex_Z *R, int ldR,
    }
 
    if (ret != 0) return ret;
+   primme->stats.elapsedTimeSolveH += primme_wTimer(0) - t0;
 
    /* -------------------------------------------------------- */
    /* Update the leftmost and rightmost Ritz values ever seen  */
@@ -159,7 +158,6 @@ int solve_H_RR_zprimme(Complex_Z *H, int ldH, Complex_Z *hVecs,
    double targetShift;
 
    double  *doubleWork;
-   double t0;
 
    /* ---------------------- */
    /* Divide the iwork space */
@@ -171,9 +169,6 @@ int solve_H_RR_zprimme(Complex_Z *H, int ldH, Complex_Z *hVecs,
    int apSize, idx;
 #endif
 
-<<<<<<< HEAD
-   t0 = primme_wTimer(0);
-=======
    /* Some LAPACK implementations don't like zero-size matrices */
    if (basisSize == 0) return 0;
 
@@ -197,7 +192,6 @@ int solve_H_RR_zprimme(Complex_Z *H, int ldH, Complex_Z *hVecs,
       return lrwork;
 #endif
    }
->>>>>>> master
 
    /* ------------------------------------------------------------------- */
    /* Copy the upper triangular portion of H into hvecs.  We need to do   */
@@ -281,7 +275,6 @@ int solve_H_RR_zprimme(Complex_Z *H, int ldH, Complex_Z *hVecs,
    /* ---------------------------------------------------------------------- */
 
    if (primme->target == primme_smallest) {
-      primme->stats.elapsedTimeSolveH += primme_wTimer(0) - t0;
       return 0;
    }
 
@@ -371,11 +364,6 @@ int solve_H_RR_zprimme(Complex_Z *H, int ldH, Complex_Z *hVecs,
       permute_vecs_zprimme(hVecs, basisSize, basisSize, ldhVecs, permu, rwork, permw);
    }
 
-<<<<<<< HEAD
-
-   primme->stats.elapsedTimeSolveH += primme_wTimer(0) - t0;
-=======
->>>>>>> master
    return 0;   
 }
 

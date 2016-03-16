@@ -194,8 +194,10 @@ int ortho_@(pre)primme(@(type) *basis, int ldBasis, @(type) *R, int ldR,
          if (nOrth == 1) {
             ztmp = Num_dot_@(pre)primme(nLocal, &basis[ldBasis*i], 1, 
                                            &basis[ldBasis*i], 1);
-         } else
+         }
+         else if (primme) {
             primme->stats.numReorthos++;
+         }
             
          if (i > 0) {
             Num_gemv_@(pre)primme("C", nLocal, i, tpone, basis, ldBasis, 
@@ -223,7 +225,7 @@ int ortho_@(pre)primme(@(type) *basis, int ldBasis, @(type) *R, int ldR,
              Num_axpy_@(pre)primme(i + numLocked + 1, tpone, overlaps, 1, 
                 &R[ldR*i], 1);
          }
-         if (primme->printLevel > 3 && nOrth == 1 ) {
+         if (primme && primme->printLevel > 3 && nOrth == 1) {
              double norm0; int j;
              fprintf(stderr, "ORTH ===\n");
              for (j=0; j<numLocked; j++) fprintf(stderr, "ORTH %g\n", ABS(overlaps[i+j])/sqrt(ABS(ztmp)));
@@ -342,9 +344,9 @@ int ortho_@(pre)primme(@(type) *basis, int ldBasis, @(type) *R, int ldR,
          } 
  
       }
-      primme->stats.numColumnsOrtho += i + numLocked;
+      if (primme) primme->stats.numColumnsOrtho += i + numLocked;
    }
-   primme->stats.elapsedTimeOrtho += primme_wTimer(0) - t0;
+   if (primme) primme->stats.elapsedTimeOrtho += primme_wTimer(0) - t0;
  
    return 0;
 }

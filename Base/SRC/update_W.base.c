@@ -32,6 +32,7 @@
 #include "update_W_@(pre).h"
 #include "ortho_@(pre).h"
 #include "numerical_@(pre).h"
+#include "wtime.h"
 
 
 /*******************************************************************************
