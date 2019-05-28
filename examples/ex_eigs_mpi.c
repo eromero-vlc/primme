@@ -79,9 +79,12 @@ int main (int argc, char *argv[]) {
    /* Set problem parameters */
    primme.n = 1000; /* set problem dimension */
    primme.numEvals = 1000;   /* Number of wanted eigenpairs */
-   primme.eps = .1;      /* ||r|| <= eps * ||matrix|| */
+   primme.eps = 1e-5;      /* ||r|| <= eps * ||matrix|| */
    primme.target = primme_largest;
                            /* Wanted the smallest eigenvalues */
+   //primme.profile = ".*";
+   primme.printLevel = 4;
+   primme.orth = primme_orth_implicit_I;
 
    /* Set advanced parameters if you know what are you doing (optional) */
    /*

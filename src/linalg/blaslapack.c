@@ -260,18 +260,12 @@ int Num_copy_Sprimme(PRIMME_INT n, SCALAR *x, int incx, SCALAR *y, int incy,
    PRIMME_BLASINT lincx = incx;
    PRIMME_BLASINT lincy = incy;
 
-   while (n > 0) {
-      ln = (PRIMME_BLASINT)min(n, PRIMME_BLASINT_MAX - 1);
-      XCOPY(&ln, x, &lincx, y, &lincy);
-      n -= (PRIMME_INT)ln;
-      x += ln;
-      y += ln;
-   }
-   return 0;
-
+   XCOPY(&ln, x, &lincx, y, &lincy);
 #else
-   return Num_copy_matrix_Sprimme(x, 1, n, incx, y, incy, ctx);
+   Num_copy_matrix_Tprimme(x, , 1, n, incx, y, incy, ctx);
 #endif
+
+   return 0;
 }
 
 /******************************************************************************
@@ -426,31 +420,28 @@ int Num_copy_matrix_Sprimme(SCALAR *x, PRIMME_INT m, PRIMME_INT n,
    if (x == y && ldx == ldy)
       return 0;
 
-   /* Copy a contiguous memory region */
-   if (ldx == ldy && ldx == m) {
-      memmove(y, x, sizeof(SCALAR) * m * n);
+   /* Copy a contiguous memory region to a not overlapping region */
+   if (ldx == ldy && ldx == m && min(x - y, y - x) >= m * n) {
+      CHKERR(Num_copy_Sprimme(m * n, x, 1, y, 1, ctx));
    }
 
    /* Copy the matrix some rows back or forward */
    else if (ldx == ldy && (y > x ? y - x : x - y) < ldx) {
       for (i = 0; i < n; i++)
-         memmove(&y[i * ldy], &x[i * ldx], sizeof(SCALAR) * m);
+      CHKERR(Num_copy_Sprimme(m, &x[i * ldx], 1, &y[i * ldy], 1, ctx));
    }
 
    /* Copy the matrix some columns forward */
    else if (ldx == ldy && y > x && y - x > ldx) {
       for (i = n - 1; i >= 0; i--)
-         for (j = 0; j < m; j++)
-            y[i * ldy + j] = x[i * ldx + j];
+         CHKERR(Num_copy_Sprimme(m, &x[i * ldx], 1, &y[i * ldy], 1, ctx));
    }
 
    /* Copy the matrix some columns backward, and other cases */
    else {
       /* TODO: assert x and y don't overlap */
       for (i = 0; i < n; i++) {
-         for (j = 0; j < m; j++) {
-            y[i * ldy + j] = x[i * ldx + j];
-         }
+         CHKERR(Num_copy_Sprimme(m, &x[i * ldx], 1, &y[i * ldy], 1, ctx));
       }
    }
 

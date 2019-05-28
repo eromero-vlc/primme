@@ -517,6 +517,29 @@ static inline uint32_t hash_call(const char *str, double value) {
    } \
 }
 
+/**********************************************************************
+ * Macro CHKERRVAL - set the error code on the second macro argument.
+ *
+ *    ERRN is only evaluated once.
+ *
+ * INPUT PARAMETERS
+ * ----------------
+ * ERRN    Expression that returns an error code
+ * RET     Variable where to assign the error code
+ *
+ **********************************************************************/
+
+#define CHKERRVAL(ERRN, RET) { \
+   MEM_PUSH_FRAME; \
+   PROFILE_BEGIN(STR(ERRN)); \
+   *(RET) = (ERRN);\
+   PROFILE_END; \
+   MEM_POP_FRAME(*(RET)); \
+   if (*(RET)) {\
+      PRINTFALL(1, "PRIMME: Error %d in (" __FILE__ ":%d): %s\n", *(RET), __LINE__, #ERRN );\
+   } \
+}
+
 /*****************************************************************************/
 /* Memory, error and params  management                                      */
 /*****************************************************************************/

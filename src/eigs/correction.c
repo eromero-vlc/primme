@@ -40,11 +40,29 @@
 #include "numerical.h"
 #include "template_normal.h"
 #include "common_eigs.h"
+#include "primme_interface.h"
 /* Keep automatically generated headers under this section  */
 #ifndef CHECK_TEMPLATE
 #include "correction.h"
 #include "inner_solve.h"
 #include "auxiliary_eigs.h"
+#endif
+
+#ifndef UPDATE_STATS
+#define UPDATE_STATS(PRIMME_STATS_LEFT, OP, PRIMME_STATS_RIGHT) {\
+   (PRIMME_STATS_LEFT).numMatvecs         OP  (PRIMME_STATS_RIGHT).numMatvecs        ;\
+   (PRIMME_STATS_LEFT).numPreconds        OP  (PRIMME_STATS_RIGHT).numPreconds       ;\
+   (PRIMME_STATS_LEFT).numGlobalSum       OP  (PRIMME_STATS_RIGHT).numGlobalSum      ;\
+   (PRIMME_STATS_LEFT).numBroadcast       OP  (PRIMME_STATS_RIGHT).numBroadcast      ;\
+   (PRIMME_STATS_LEFT).volumeGlobalSum    OP  (PRIMME_STATS_RIGHT).volumeGlobalSum   ;\
+   (PRIMME_STATS_LEFT).volumeBroadcast    OP  (PRIMME_STATS_RIGHT).volumeBroadcast   ;\
+   (PRIMME_STATS_LEFT).numOrthoInnerProds OP  (PRIMME_STATS_RIGHT).numOrthoInnerProds;\
+   (PRIMME_STATS_LEFT).timeMatvec         OP  (PRIMME_STATS_RIGHT).timeMatvec        ;\
+   (PRIMME_STATS_LEFT).timePrecond        OP  (PRIMME_STATS_RIGHT).timePrecond       ;\
+   (PRIMME_STATS_LEFT).timeOrtho          OP  (PRIMME_STATS_RIGHT).timeOrtho         ;\
+   (PRIMME_STATS_LEFT).timeGlobalSum      OP  (PRIMME_STATS_RIGHT).timeGlobalSum     ;\
+   (PRIMME_STATS_LEFT).timeBroadcast      OP  (PRIMME_STATS_RIGHT).timeBroadcast     ;\
+}
 #endif
 
 #ifdef SUPPORTED_TYPE
@@ -136,7 +154,8 @@ int solve_correction_Sprimme(SCALAR *V, PRIMME_INT ldV, SCALAR *W,
       PRIMME_INT ldevecs, SCALAR *Bevecs, PRIMME_INT ldBevecs, SCALAR *evecsHat,
       PRIMME_INT ldevecsHat, HSCALAR *Mfact, int *ipivot, HEVAL *lockedEvals,
       int numLocked, int numConvergedStored, HEVAL *ritzVals,
-      HEVAL *prevRitzVals, int *numPrevRitzVals, int *flags, int basisSize,
+      HEVAL *prevRitzVals, int *numPrevRitzVals, HSCALAR *prevhVecs,
+      int ldprevhVecs, int nprevhVecs, int *flags, int basisSize,
       HREAL *blockNorms, int *iev, int blockSize, int *touch, double startTime,
       primme_context ctx) {
 
@@ -221,6 +240,9 @@ int solve_correction_Sprimme(SCALAR *V, PRIMME_INT ldV, SCALAR *W,
          if (EVAL_ABS(sortedRitzVals[sortedIndex] - (HEVAL)targetShift) <
                blockNorms[blockIndex] * sqrt(primme->stats.estimateInvBNorm)) {
             blockOfShifts[blockIndex] = targetShift;
+         } else if (primme->projectionParams.projection ==
+                    primme_proj_refined) {
+            blockOfShifts[blockIndex] = sortedRitzVals[sortedIndex];
          } else {
             blockOfShifts[blockIndex] =
                   sortedRitzVals[sortedIndex] +
@@ -377,7 +399,7 @@ int solve_correction_Sprimme(SCALAR *V, PRIMME_INT ldV, SCALAR *W,
    /* ------------------------------------------------------------ */
    /*  JDQMR --- JD inner-outer variants                           */
    /* ------------------------------------------------------------ */
-   else {  /* maxInnerIterations > 0  We perform inner-outer JDQMR */
+   else if (primme->correctionParams.maxInnerIterations >= -1) {
 #ifdef USE_HERMITIAN
       int touch0 = *touch;
 
@@ -448,9 +470,8 @@ int solve_correction_Sprimme(SCALAR *V, PRIMME_INT ldV, SCALAR *W,
             blockRitzVals, blockOfShifts, &touch1, startTime, ctx));
       *touch = max(*touch, touch1);
 
-      Num_copy_matrix_Sprimme(sol, primme->nLocal, blockSize, ldsol,
-            &V[ldV * basisSize], ldV, ctx);
-
+      CHKERR(Num_copy_matrix_Sprimme(sol, primme->nLocal, blockSize, ldsol,
+            &V[ldV * basisSize], ldV, ctx));
 
       CHKERR(Num_free_SHprimme(xKinvBx, ctx));
       CHKERR(Num_free_Sprimme(sol, ctx));
@@ -459,7 +480,97 @@ int solve_correction_Sprimme(SCALAR *V, PRIMME_INT ldV, SCALAR *W,
 #else
       CHKERR(PRIMME_FUNCTION_UNAVAILABLE);
 #endif /* USE_HERMITIAN */
-   } /* JDqmr variants */
+   }
+
+   /* Recursive primme */
+
+   else {
+      primme_params primme_inner = *primme;
+      primme_inner.convtest = primme;
+      primme_inner.numEvals = blockSize;
+      primme_inner.initSize = nprevhVecs > 0 ? blockSize * 3 : blockSize * 2;
+      primme_inner.ldevecs = primme->nLocal;
+      primme_inner.targetShifts = (double *)blockOfShifts;
+      primme_inner.numTargetShifts = blockSize;
+#ifdef USE_HERMITIAN
+      double targetShift =
+            primme->numTargetShifts == 0
+                  ? 0.0
+                  : primme->targetShifts[min(
+                          primme->numTargetShifts - 1, numLocked)];
+      // if (primme->locking && numLocked > 0 &&
+      //       (primme->numTargetShifts == 0 || targetShift != blockOfShifts[0])) {
+      //    primme_inner.target = blockOfShifts[0] < targetShift
+      //                                ? primme_closest_leq
+      //                                : primme_closest_geq;
+      //    primme_inner.locking = 1;
+      // } else
+#endif /* USE_HERMITIAN */
+      {
+         primme_inner.target = primme_closest_abs;
+         primme_inner.locking = 0;
+      }
+      primme_inner.maxBlockSize = 1;
+      primme_inner.projectionParams.projection = primme_proj_refined;
+      primme_inner.maxMatvecs =
+            min(max(-primme->correctionParams.maxInnerIterations + 2, 5) *
+                        blockSize,
+                  primme->maxMatvecs - primme->stats.numMatvecs);
+      primme_inner.convTestFun = convTestFun_inner;
+      primme_inner.initBasisMode = primme_init_user;
+      // primme_inner.aNorm = max(primme->aNorm,
+      //       primme->stats.estimateLargestSVal / primme->stats.estimateInvBNorm);
+      // primme_inner.invBNorm =
+      //       max(primme->invBNorm, primme->stats.estimateInvBNorm);
+      primme_set_method(PRIMME_LOBPCG_OrthoBasis_Window, &primme_inner);
+
+      HEVAL *evals_inner;
+      SCALAR *evecs_inner;
+      HREAL *rnorms_inner;
+      CHKERR(KIND(Num_malloc_RHprimme, Num_malloc_SHprimme)(
+            blockSize, &evals_inner, ctx));
+      CHKERR(Num_malloc_Sprimme(
+            primme->nLocal * primme_inner.initSize, &evecs_inner, ctx));
+      CHKERR(Num_malloc_RHprimme(blockSize, &rnorms_inner, ctx));
+
+      /* Copy approximate eigenvectors and from previous iteration to
+       * evecs_inner */
+
+      CHKERR(Num_copy_matrix_Sprimme(&V[ldV * basisSize], primme->nLocal,
+            blockSize, ldV, evecs_inner, primme->nLocal, ctx));
+      CHKERR(Num_copy_matrix_Sprimme(&W[ldW * basisSize], primme->nLocal,
+            blockSize, ldW, &evecs_inner[primme->nLocal * blockSize],
+            primme->nLocal, ctx));
+      if (primme_inner.initSize > blockSize * 2) {
+         HSCALAR *Y;
+         CHKERR(Num_malloc_SHprimme(basisSize * blockSize, &Y, ctx));
+         CHKERR(Num_copy_matrix_columns_SHprimme(prevhVecs, basisSize, iev,
+               blockSize, ldprevhVecs, Y, NULL, basisSize, ctx));
+         CHKERR(
+               Num_zero_matrix_Sprimme(&evecs_inner[primme->nLocal * blockSize],
+                     primme->nLocal, blockSize, primme->nLocal, ctx));
+         CHKERR(Num_gemm_Sprimme("N", "N", primme->nLocal, blockSize, basisSize,
+               1.0, V, ldV, Y, basisSize, 0.0,
+               &evecs_inner[primme->nLocal * blockSize * 2], primme->nLocal,
+               ctx));
+         CHKERR(Num_free_SHprimme(Y, ctx));
+      }
+
+      CHKERR(Xprimme(evals_inner, evecs_inner, rnorms_inner, &primme_inner));
+
+      CHKERR(Num_copy_matrix_Sprimme(evecs_inner, primme->nLocal,
+            primme_inner.initSize, primme->nLocal, &V[ldV * basisSize], ldV,
+            ctx));
+
+      /* Update stats */
+
+      UPDATE_STATS(primme->stats, +=, primme_inner.stats);
+
+      CHKERR(KIND(Num_free_RHprimme, Num_free_SHprimme)(evals_inner, ctx));
+      CHKERR(Num_free_Sprimme(evecs_inner, ctx));
+      CHKERR(Num_free_RHprimme(rnorms_inner, ctx));
+      primme_free(&primme_inner);
+   }
 
    if (sortedRitzVals != ritzVals)
       CHKERR(KIND(Num_free_RHprimme, Num_free_SHprimme)(sortedRitzVals, ctx));
@@ -752,8 +863,8 @@ STATIC int Olsen_preconditioner_block(SCALAR *r, PRIMME_INT ldr, SCALAR *x,
 
    int blockIndex;
    for (blockIndex = 0; blockIndex < blockSize; blockIndex++) {
-      Num_copy_matrix_Sprimme(&Kinvr[ldKinvBxr * blockIndex],
-            primme->nLocal, 1, ldKinvBxr, &x[ldx * blockIndex], ldx, ctx);
+      CHKERR(Num_copy_matrix_Sprimme(&Kinvr[ldKinvBxr * blockIndex],
+            primme->nLocal, 1, ldKinvBxr, &x[ldx * blockIndex], ldx, ctx));
 
       if (ABS(xKinvBx[blockIndex]) > 0.0) {
          HSCALAR alpha;
@@ -906,11 +1017,11 @@ STATIC int setup_JD_projectors(SCALAR *x, PRIMME_INT ldx, SCALAR *Bx,
       *ldLprojectorBQ = ldBevecs;
       if (primme->correctionParams.projectors.LeftX) {
          if (blockSize <= 1) {
-            Num_copy_matrix_Sprimme(x, n, blockSize, ldx,
-                  &evecs[sizeEvecs * ldevecs], ldevecs, ctx);
+            CHKERR(Num_copy_matrix_Sprimme(x, n, blockSize, ldx,
+                  &evecs[sizeEvecs * ldevecs], ldevecs, ctx));
             if (Bx != x) {
-               Num_copy_matrix_Sprimme(Bx, n, blockSize, ldBx,
-                     &Bevecs[sizeEvecs * ldBevecs], ldBevecs, ctx);
+               CHKERR(Num_copy_matrix_Sprimme(Bx, n, blockSize, ldBx,
+                     &Bevecs[sizeEvecs * ldBevecs], ldBevecs, ctx));
             }
             *sizeLprojectorQ += blockSize;
          }
@@ -990,5 +1101,23 @@ STATIC int setup_JD_projectors(SCALAR *x, PRIMME_INT ldx, SCALAR *Bx,
    return 0;
 
 } /* setup_JD_projectors */
+
+STATIC void convTestFun_inner(double *eval, void *evec, double *rNorm,
+      int *isConv, primme_params *primme, int *ierr) {
+
+   /* Call actual convTestFun */
+
+   primme_params *primme_original = (primme_params *)primme->convtest;
+   primme_original->convTestFun(
+         eval, evec, rNorm, isConv, primme_original, ierr);
+
+   /* Mark the pair as converged when running out of matvecs */
+
+   if (primme->stats.numMatvecs >= primme->maxMatvecs - primme->maxBlockSize)
+      *isConv = 1;
+
+   *ierr = 0;
+}
+
 
 #endif /* SUPPORTED_TYPE */

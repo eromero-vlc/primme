@@ -66,15 +66,21 @@ int main (int argc, char *argv[]) {
                               A*x for solving the problem A*x = l*x */
   
    /* Set problem parameters */
-   primme.n = 100; /* set problem dimension */
-   primme.numEvals = 10;   /* Number of wanted eigenpairs */
-   primme.eps = 1e-9;      /* ||r|| <= eps * ||matrix|| */
-   primme.target = primme_smallest;
+   primme.n = 10000; /* set problem dimension */
+   primme.numEvals = 128;   /* Number of wanted eigenpairs */
+   primme.eps = 1e-6;      /* ||r|| <= eps * ||matrix|| */
+   double t=0.2;
+   primme.targetShifts = &t;
+   primme.numTargetShifts = 1;
+   primme.target = primme_closest_abs;
                            /* Wanted the smallest eigenvalues */
+   primme.printLevel = 4;
+   primme.projectionParams.projection = primme_proj_refined;
+   //primme.orth = primme_orth_implicit_I;
 
    /* Set preconditioner (optional) */
-   primme.applyPreconditioner = LaplacianApplyPreconditioner;
-   primme.correctionParams.precondition = 1;
+   //primme.applyPreconditioner = LaplacianApplyPreconditioner;
+   //primme.correctionParams.precondition = 1;
 
    /* Set advanced parameters if you know what are you doing (optional) */
    /*
@@ -85,12 +91,14 @@ int main (int argc, char *argv[]) {
    */
 
    /* Set method to solve the problem */
-   primme_set_method(PRIMME_DYNAMIC, &primme);
+   primme_set_method(PRIMME_DEFAULT_MIN_TIME, &primme);
    /* DYNAMIC uses a runtime heuristic to choose the fastest method between
        PRIMME_DEFAULT_MIN_TIME and PRIMME_DEFAULT_MIN_MATVECS. But you can
        set another method, such as PRIMME_LOBPCG_OrthoBasis_Window, directly */
 
    /* Display PRIMME configuration struct (optional) */
+   primme.correctionParams.maxInnerIterations = 160*4;
+   primme.correctionParams.convTest = primme_full_LTolerance;
    primme_display_params(primme);
 
    /* Allocate space for converged Ritz values and residual norms */
@@ -120,6 +128,11 @@ int main (int argc, char *argv[]) {
    fprintf(primme.outputFile, "Restarts  : %-" PRIMME_INT_P "\n", primme.stats.numRestarts);
    fprintf(primme.outputFile, "Matvecs   : %-" PRIMME_INT_P "\n", primme.stats.numMatvecs);
    fprintf(primme.outputFile, "Preconds  : %-" PRIMME_INT_P "\n", primme.stats.numPreconds);
+     fprintf(primme.outputFile, "Orthogonalization Time : %g\n", primme.stats.timeOrtho);
+     fprintf(primme.outputFile, "Matvec Time            : %g\n", primme.stats.timeMatvec);
+     fprintf(primme.outputFile, "GlobalSum Time         : %g\n", primme.stats.timeGlobalSum);
+     fprintf(primme.outputFile, "Broadcast Time         : %g\n", primme.stats.timeBroadcast);
+     fprintf(primme.outputFile, "Total Time             : %g\n", primme.stats.elapsedTime);
    if (primme.stats.lockingIssue) {
       fprintf(primme.outputFile, "\nA locking problem has occurred.\n");
       fprintf(primme.outputFile,

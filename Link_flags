@@ -25,7 +25,8 @@ ifeq ($(origin LIBS), undefined)
                  -L$(CUDADIR)/lib64 -lcublas -lcudart -lcusparse
     endif
     ifndef MKLROOT
-        LIBS += -llapack -lblas -lm
+        #LIBS += -llapack -lblas -lm
+        LIBS += /usr/lib/x86_64-linux-gnu/libopenblas.a -lpthread -lm
         ifneq ($(UNAME), Darwin)
             LIBS += -lgfortran
         endif

@@ -107,6 +107,11 @@ tags:
 # Convenient actions to build half precision (optional)
 #
 
+lib-debug all_tests-debug: export CFLAGS += -g -O0 -fsanitize=undefined,pointer-compare,address
+lib-debug all_tests-debug: export LDFLAGS += -g -O0 -fsanitize=undefined,pointer-compare,address
+lib-debug: lib
+all_tests-debug: all_tests
+
 lib-clang-half matlab-clang-half lib-clang-half-debug matlab-clang-half-debug: export PRIMME_WITH_HALF := yes
 lib-clang-half matlab-clang-half lib-clang-half-debug matlab-clang-half-debug: export CC := clang
 lib-clang-half matlab-clang-half: export CFLAGS += -march=native -Ofast

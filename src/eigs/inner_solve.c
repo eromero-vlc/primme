@@ -269,7 +269,7 @@ int inner_solve_Sprimme(int blockSize, SCALAR *x, PRIMME_INT ldx, SCALAR *Bx,
    /* --------------------------------------------------------*/
 
    /* Assume zero initial guess */
-   Num_copy_matrix_Sprimme(r, nLocal, blockSize, ldr, g, nLocal, ctx);
+   CHKERR(Num_copy_matrix_Sprimme(r, nLocal, blockSize, ldr, g, nLocal, ctx));
 
    CHKERR(apply_projected_preconditioner(g, nLocal, evecs, ldevecs, RprojectorQ,
          ldRprojectorQ, x, ldx, RprojectorX, ldRprojectorX, sizeRprojectorQ,
@@ -323,8 +323,8 @@ int inner_solve_Sprimme(int blockSize, SCALAR *x, PRIMME_INT ldx, SCALAR *Bx,
 
             /* sol = r if first iteration */
             if (numIts == 0) {
-               Num_copy_matrix_Sprimme(&r[ldr * i], nLocal, 1, ldr,
-                     &sol[ldsol * i], ldsol, ctx);
+               CHKERR(Num_copy_matrix_Sprimme(
+                     &r[ldr * i], nLocal, 1, ldr, &sol[ldsol * i], ldsol, ctx));
             }
             CHKERR(perm_set_value_on_pos(p0, i, blockSize - ++conv, blockSize));
             continue;
@@ -339,8 +339,8 @@ int inner_solve_Sprimme(int blockSize, SCALAR *x, PRIMME_INT ldx, SCALAR *Bx,
 
             /* sol = r if first iteration */
             if (numIts == 0) {
-               Num_copy_matrix_Sprimme(&r[ldr * i], nLocal, 1, ldr,
-                     &sol[ldsol * i], ldsol, ctx);
+               CHKERR(Num_copy_matrix_Sprimme(
+                     &r[ldr * i], nLocal, 1, ldr, &sol[ldsol * i], ldsol, ctx));
             }
             CHKERR(perm_set_value_on_pos(p0, i, blockSize - ++conv, blockSize));
             continue;
@@ -563,7 +563,8 @@ int inner_solve_Sprimme(int blockSize, SCALAR *x, PRIMME_INT ldx, SCALAR *Bx,
             /* than eps*aNorm*LTolerance_factor                               */
 
             CHKERR(convTestFun_Sprimme(eval[p[i]], NULL, 0 /* evec not given */,
-                  tau[p[i]] / LTolerance_factor, &isConv, ctx));
+                  tau[p[i]] / LTolerance_factor * sqrt((double)numIts), &isConv,
+                  ctx));
 
             if (numIts > 0 && isConv) {
                PRINTF(5,

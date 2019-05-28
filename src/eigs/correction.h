@@ -128,7 +128,8 @@ int solve_correction_dprimme(dummy_type_dprimme *V, PRIMME_INT ldV, dummy_type_d
       PRIMME_INT ldevecs, dummy_type_dprimme *Bevecs, PRIMME_INT ldBevecs, dummy_type_dprimme *evecsHat,
       PRIMME_INT ldevecsHat, dummy_type_dprimme *Mfact, int *ipivot, dummy_type_dprimme *lockedEvals,
       int numLocked, int numConvergedStored, dummy_type_dprimme *ritzVals,
-      dummy_type_dprimme *prevRitzVals, int *numPrevRitzVals, int *flags, int basisSize,
+      dummy_type_dprimme *prevRitzVals, int *numPrevRitzVals, dummy_type_dprimme *prevhVecs,
+      int ldprevhVecs, int nprevhVecs, int *flags, int basisSize,
       dummy_type_dprimme *blockNorms, int *iev, int blockSize, int *touch, double startTime,
       primme_context ctx);
 #if !defined(CHECK_TEMPLATE) && !defined(computeRobustShift)
@@ -164,12 +165,18 @@ int setup_JD_projectorsdprimme(dummy_type_dprimme *x, PRIMME_INT ldx, dummy_type
       PRIMME_INT *ldRprojectorX, int *sizeLprojectorQ, int *sizeLprojectorX,
       int *sizeRprojectorQ, int *sizeRprojectorX, int numLocked,
       int numConverged, int blockSize, primme_context ctx);
+#if !defined(CHECK_TEMPLATE) && !defined(convTestFun_inner)
+#  define convTestFun_inner CONCAT(convTestFun_inner,WITH_KIND(SCALAR_SUF))
+#endif
+void convTestFun_innerdprimme(double *eval, void *evec, double *rNorm,
+      int *isConv, primme_params *primme, int *ierr);
 int solve_correction_hprimme(dummy_type_hprimme *V, PRIMME_INT ldV, dummy_type_hprimme *W,
       PRIMME_INT ldW, dummy_type_hprimme *BV, PRIMME_INT ldBV, dummy_type_hprimme *evecs,
       PRIMME_INT ldevecs, dummy_type_hprimme *Bevecs, PRIMME_INT ldBevecs, dummy_type_hprimme *evecsHat,
       PRIMME_INT ldevecsHat, dummy_type_sprimme *Mfact, int *ipivot, dummy_type_sprimme *lockedEvals,
       int numLocked, int numConvergedStored, dummy_type_sprimme *ritzVals,
-      dummy_type_sprimme *prevRitzVals, int *numPrevRitzVals, int *flags, int basisSize,
+      dummy_type_sprimme *prevRitzVals, int *numPrevRitzVals, dummy_type_sprimme *prevhVecs,
+      int ldprevhVecs, int nprevhVecs, int *flags, int basisSize,
       dummy_type_sprimme *blockNorms, int *iev, int blockSize, int *touch, double startTime,
       primme_context ctx);
 dummy_type_sprimme computeRobustShifthprimme(int blockIndex, double resNorm,
@@ -193,12 +200,15 @@ int setup_JD_projectorshprimme(dummy_type_hprimme *x, PRIMME_INT ldx, dummy_type
       PRIMME_INT *ldRprojectorX, int *sizeLprojectorQ, int *sizeLprojectorX,
       int *sizeRprojectorQ, int *sizeRprojectorX, int numLocked,
       int numConverged, int blockSize, primme_context ctx);
+void convTestFun_innerhprimme(double *eval, void *evec, double *rNorm,
+      int *isConv, primme_params *primme, int *ierr);
 int solve_correction_kprimme_normal(dummy_type_kprimme *V, PRIMME_INT ldV, dummy_type_kprimme *W,
       PRIMME_INT ldW, dummy_type_kprimme *BV, PRIMME_INT ldBV, dummy_type_kprimme *evecs,
       PRIMME_INT ldevecs, dummy_type_kprimme *Bevecs, PRIMME_INT ldBevecs, dummy_type_kprimme *evecsHat,
       PRIMME_INT ldevecsHat, dummy_type_cprimme *Mfact, int *ipivot, dummy_type_cprimme *lockedEvals,
       int numLocked, int numConvergedStored, dummy_type_cprimme *ritzVals,
-      dummy_type_cprimme *prevRitzVals, int *numPrevRitzVals, int *flags, int basisSize,
+      dummy_type_cprimme *prevRitzVals, int *numPrevRitzVals, dummy_type_cprimme *prevhVecs,
+      int ldprevhVecs, int nprevhVecs, int *flags, int basisSize,
       dummy_type_sprimme *blockNorms, int *iev, int blockSize, int *touch, double startTime,
       primme_context ctx);
 dummy_type_sprimme computeRobustShiftkprimme_normal(int blockIndex, double resNorm,
@@ -222,12 +232,15 @@ int setup_JD_projectorskprimme_normal(dummy_type_kprimme *x, PRIMME_INT ldx, dum
       PRIMME_INT *ldRprojectorX, int *sizeLprojectorQ, int *sizeLprojectorX,
       int *sizeRprojectorQ, int *sizeRprojectorX, int numLocked,
       int numConverged, int blockSize, primme_context ctx);
+void convTestFun_innerkprimme_normal(double *eval, void *evec, double *rNorm,
+      int *isConv, primme_params *primme, int *ierr);
 int solve_correction_kprimme(dummy_type_kprimme *V, PRIMME_INT ldV, dummy_type_kprimme *W,
       PRIMME_INT ldW, dummy_type_kprimme *BV, PRIMME_INT ldBV, dummy_type_kprimme *evecs,
       PRIMME_INT ldevecs, dummy_type_kprimme *Bevecs, PRIMME_INT ldBevecs, dummy_type_kprimme *evecsHat,
       PRIMME_INT ldevecsHat, dummy_type_cprimme *Mfact, int *ipivot, dummy_type_sprimme *lockedEvals,
       int numLocked, int numConvergedStored, dummy_type_sprimme *ritzVals,
-      dummy_type_sprimme *prevRitzVals, int *numPrevRitzVals, int *flags, int basisSize,
+      dummy_type_sprimme *prevRitzVals, int *numPrevRitzVals, dummy_type_cprimme *prevhVecs,
+      int ldprevhVecs, int nprevhVecs, int *flags, int basisSize,
       dummy_type_sprimme *blockNorms, int *iev, int blockSize, int *touch, double startTime,
       primme_context ctx);
 dummy_type_sprimme computeRobustShiftkprimme(int blockIndex, double resNorm,
@@ -251,12 +264,15 @@ int setup_JD_projectorskprimme(dummy_type_kprimme *x, PRIMME_INT ldx, dummy_type
       PRIMME_INT *ldRprojectorX, int *sizeLprojectorQ, int *sizeLprojectorX,
       int *sizeRprojectorQ, int *sizeRprojectorX, int numLocked,
       int numConverged, int blockSize, primme_context ctx);
+void convTestFun_innerkprimme(double *eval, void *evec, double *rNorm,
+      int *isConv, primme_params *primme, int *ierr);
 int solve_correction_sprimme(dummy_type_sprimme *V, PRIMME_INT ldV, dummy_type_sprimme *W,
       PRIMME_INT ldW, dummy_type_sprimme *BV, PRIMME_INT ldBV, dummy_type_sprimme *evecs,
       PRIMME_INT ldevecs, dummy_type_sprimme *Bevecs, PRIMME_INT ldBevecs, dummy_type_sprimme *evecsHat,
       PRIMME_INT ldevecsHat, dummy_type_sprimme *Mfact, int *ipivot, dummy_type_sprimme *lockedEvals,
       int numLocked, int numConvergedStored, dummy_type_sprimme *ritzVals,
-      dummy_type_sprimme *prevRitzVals, int *numPrevRitzVals, int *flags, int basisSize,
+      dummy_type_sprimme *prevRitzVals, int *numPrevRitzVals, dummy_type_sprimme *prevhVecs,
+      int ldprevhVecs, int nprevhVecs, int *flags, int basisSize,
       dummy_type_sprimme *blockNorms, int *iev, int blockSize, int *touch, double startTime,
       primme_context ctx);
 dummy_type_sprimme computeRobustShiftsprimme(int blockIndex, double resNorm,
@@ -280,12 +296,15 @@ int setup_JD_projectorssprimme(dummy_type_sprimme *x, PRIMME_INT ldx, dummy_type
       PRIMME_INT *ldRprojectorX, int *sizeLprojectorQ, int *sizeLprojectorX,
       int *sizeRprojectorQ, int *sizeRprojectorX, int numLocked,
       int numConverged, int blockSize, primme_context ctx);
+void convTestFun_innersprimme(double *eval, void *evec, double *rNorm,
+      int *isConv, primme_params *primme, int *ierr);
 int solve_correction_cprimme_normal(dummy_type_cprimme *V, PRIMME_INT ldV, dummy_type_cprimme *W,
       PRIMME_INT ldW, dummy_type_cprimme *BV, PRIMME_INT ldBV, dummy_type_cprimme *evecs,
       PRIMME_INT ldevecs, dummy_type_cprimme *Bevecs, PRIMME_INT ldBevecs, dummy_type_cprimme *evecsHat,
       PRIMME_INT ldevecsHat, dummy_type_cprimme *Mfact, int *ipivot, dummy_type_cprimme *lockedEvals,
       int numLocked, int numConvergedStored, dummy_type_cprimme *ritzVals,
-      dummy_type_cprimme *prevRitzVals, int *numPrevRitzVals, int *flags, int basisSize,
+      dummy_type_cprimme *prevRitzVals, int *numPrevRitzVals, dummy_type_cprimme *prevhVecs,
+      int ldprevhVecs, int nprevhVecs, int *flags, int basisSize,
       dummy_type_sprimme *blockNorms, int *iev, int blockSize, int *touch, double startTime,
       primme_context ctx);
 dummy_type_sprimme computeRobustShiftcprimme_normal(int blockIndex, double resNorm,
@@ -309,12 +328,15 @@ int setup_JD_projectorscprimme_normal(dummy_type_cprimme *x, PRIMME_INT ldx, dum
       PRIMME_INT *ldRprojectorX, int *sizeLprojectorQ, int *sizeLprojectorX,
       int *sizeRprojectorQ, int *sizeRprojectorX, int numLocked,
       int numConverged, int blockSize, primme_context ctx);
+void convTestFun_innercprimme_normal(double *eval, void *evec, double *rNorm,
+      int *isConv, primme_params *primme, int *ierr);
 int solve_correction_cprimme(dummy_type_cprimme *V, PRIMME_INT ldV, dummy_type_cprimme *W,
       PRIMME_INT ldW, dummy_type_cprimme *BV, PRIMME_INT ldBV, dummy_type_cprimme *evecs,
       PRIMME_INT ldevecs, dummy_type_cprimme *Bevecs, PRIMME_INT ldBevecs, dummy_type_cprimme *evecsHat,
       PRIMME_INT ldevecsHat, dummy_type_cprimme *Mfact, int *ipivot, dummy_type_sprimme *lockedEvals,
       int numLocked, int numConvergedStored, dummy_type_sprimme *ritzVals,
-      dummy_type_sprimme *prevRitzVals, int *numPrevRitzVals, int *flags, int basisSize,
+      dummy_type_sprimme *prevRitzVals, int *numPrevRitzVals, dummy_type_cprimme *prevhVecs,
+      int ldprevhVecs, int nprevhVecs, int *flags, int basisSize,
       dummy_type_sprimme *blockNorms, int *iev, int blockSize, int *touch, double startTime,
       primme_context ctx);
 dummy_type_sprimme computeRobustShiftcprimme(int blockIndex, double resNorm,
@@ -338,12 +360,15 @@ int setup_JD_projectorscprimme(dummy_type_cprimme *x, PRIMME_INT ldx, dummy_type
       PRIMME_INT *ldRprojectorX, int *sizeLprojectorQ, int *sizeLprojectorX,
       int *sizeRprojectorQ, int *sizeRprojectorX, int numLocked,
       int numConverged, int blockSize, primme_context ctx);
+void convTestFun_innercprimme(double *eval, void *evec, double *rNorm,
+      int *isConv, primme_params *primme, int *ierr);
 int solve_correction_zprimme_normal(dummy_type_zprimme *V, PRIMME_INT ldV, dummy_type_zprimme *W,
       PRIMME_INT ldW, dummy_type_zprimme *BV, PRIMME_INT ldBV, dummy_type_zprimme *evecs,
       PRIMME_INT ldevecs, dummy_type_zprimme *Bevecs, PRIMME_INT ldBevecs, dummy_type_zprimme *evecsHat,
       PRIMME_INT ldevecsHat, dummy_type_zprimme *Mfact, int *ipivot, dummy_type_zprimme *lockedEvals,
       int numLocked, int numConvergedStored, dummy_type_zprimme *ritzVals,
-      dummy_type_zprimme *prevRitzVals, int *numPrevRitzVals, int *flags, int basisSize,
+      dummy_type_zprimme *prevRitzVals, int *numPrevRitzVals, dummy_type_zprimme *prevhVecs,
+      int ldprevhVecs, int nprevhVecs, int *flags, int basisSize,
       dummy_type_dprimme *blockNorms, int *iev, int blockSize, int *touch, double startTime,
       primme_context ctx);
 dummy_type_dprimme computeRobustShiftzprimme_normal(int blockIndex, double resNorm,
@@ -367,12 +392,15 @@ int setup_JD_projectorszprimme_normal(dummy_type_zprimme *x, PRIMME_INT ldx, dum
       PRIMME_INT *ldRprojectorX, int *sizeLprojectorQ, int *sizeLprojectorX,
       int *sizeRprojectorQ, int *sizeRprojectorX, int numLocked,
       int numConverged, int blockSize, primme_context ctx);
+void convTestFun_innerzprimme_normal(double *eval, void *evec, double *rNorm,
+      int *isConv, primme_params *primme, int *ierr);
 int solve_correction_zprimme(dummy_type_zprimme *V, PRIMME_INT ldV, dummy_type_zprimme *W,
       PRIMME_INT ldW, dummy_type_zprimme *BV, PRIMME_INT ldBV, dummy_type_zprimme *evecs,
       PRIMME_INT ldevecs, dummy_type_zprimme *Bevecs, PRIMME_INT ldBevecs, dummy_type_zprimme *evecsHat,
       PRIMME_INT ldevecsHat, dummy_type_zprimme *Mfact, int *ipivot, dummy_type_dprimme *lockedEvals,
       int numLocked, int numConvergedStored, dummy_type_dprimme *ritzVals,
-      dummy_type_dprimme *prevRitzVals, int *numPrevRitzVals, int *flags, int basisSize,
+      dummy_type_dprimme *prevRitzVals, int *numPrevRitzVals, dummy_type_zprimme *prevhVecs,
+      int ldprevhVecs, int nprevhVecs, int *flags, int basisSize,
       dummy_type_dprimme *blockNorms, int *iev, int blockSize, int *touch, double startTime,
       primme_context ctx);
 dummy_type_dprimme computeRobustShiftzprimme(int blockIndex, double resNorm,
@@ -396,12 +424,15 @@ int setup_JD_projectorszprimme(dummy_type_zprimme *x, PRIMME_INT ldx, dummy_type
       PRIMME_INT *ldRprojectorX, int *sizeLprojectorQ, int *sizeLprojectorX,
       int *sizeRprojectorQ, int *sizeRprojectorX, int numLocked,
       int numConverged, int blockSize, primme_context ctx);
+void convTestFun_innerzprimme(double *eval, void *evec, double *rNorm,
+      int *isConv, primme_params *primme, int *ierr);
 int solve_correction_magma_hprimme(dummy_type_magma_hprimme *V, PRIMME_INT ldV, dummy_type_magma_hprimme *W,
       PRIMME_INT ldW, dummy_type_magma_hprimme *BV, PRIMME_INT ldBV, dummy_type_magma_hprimme *evecs,
       PRIMME_INT ldevecs, dummy_type_magma_hprimme *Bevecs, PRIMME_INT ldBevecs, dummy_type_magma_hprimme *evecsHat,
       PRIMME_INT ldevecsHat, dummy_type_sprimme *Mfact, int *ipivot, dummy_type_sprimme *lockedEvals,
       int numLocked, int numConvergedStored, dummy_type_sprimme *ritzVals,
-      dummy_type_sprimme *prevRitzVals, int *numPrevRitzVals, int *flags, int basisSize,
+      dummy_type_sprimme *prevRitzVals, int *numPrevRitzVals, dummy_type_sprimme *prevhVecs,
+      int ldprevhVecs, int nprevhVecs, int *flags, int basisSize,
       dummy_type_sprimme *blockNorms, int *iev, int blockSize, int *touch, double startTime,
       primme_context ctx);
 dummy_type_sprimme computeRobustShiftmagma_hprimme(int blockIndex, double resNorm,
@@ -425,12 +456,15 @@ int setup_JD_projectorsmagma_hprimme(dummy_type_magma_hprimme *x, PRIMME_INT ldx
       PRIMME_INT *ldRprojectorX, int *sizeLprojectorQ, int *sizeLprojectorX,
       int *sizeRprojectorQ, int *sizeRprojectorX, int numLocked,
       int numConverged, int blockSize, primme_context ctx);
+void convTestFun_innermagma_hprimme(double *eval, void *evec, double *rNorm,
+      int *isConv, primme_params *primme, int *ierr);
 int solve_correction_magma_kprimme_normal(dummy_type_magma_kprimme *V, PRIMME_INT ldV, dummy_type_magma_kprimme *W,
       PRIMME_INT ldW, dummy_type_magma_kprimme *BV, PRIMME_INT ldBV, dummy_type_magma_kprimme *evecs,
       PRIMME_INT ldevecs, dummy_type_magma_kprimme *Bevecs, PRIMME_INT ldBevecs, dummy_type_magma_kprimme *evecsHat,
       PRIMME_INT ldevecsHat, dummy_type_cprimme *Mfact, int *ipivot, dummy_type_cprimme *lockedEvals,
       int numLocked, int numConvergedStored, dummy_type_cprimme *ritzVals,
-      dummy_type_cprimme *prevRitzVals, int *numPrevRitzVals, int *flags, int basisSize,
+      dummy_type_cprimme *prevRitzVals, int *numPrevRitzVals, dummy_type_cprimme *prevhVecs,
+      int ldprevhVecs, int nprevhVecs, int *flags, int basisSize,
       dummy_type_sprimme *blockNorms, int *iev, int blockSize, int *touch, double startTime,
       primme_context ctx);
 dummy_type_sprimme computeRobustShiftmagma_kprimme_normal(int blockIndex, double resNorm,
@@ -454,12 +488,15 @@ int setup_JD_projectorsmagma_kprimme_normal(dummy_type_magma_kprimme *x, PRIMME_
       PRIMME_INT *ldRprojectorX, int *sizeLprojectorQ, int *sizeLprojectorX,
       int *sizeRprojectorQ, int *sizeRprojectorX, int numLocked,
       int numConverged, int blockSize, primme_context ctx);
+void convTestFun_innermagma_kprimme_normal(double *eval, void *evec, double *rNorm,
+      int *isConv, primme_params *primme, int *ierr);
 int solve_correction_magma_kprimme(dummy_type_magma_kprimme *V, PRIMME_INT ldV, dummy_type_magma_kprimme *W,
       PRIMME_INT ldW, dummy_type_magma_kprimme *BV, PRIMME_INT ldBV, dummy_type_magma_kprimme *evecs,
       PRIMME_INT ldevecs, dummy_type_magma_kprimme *Bevecs, PRIMME_INT ldBevecs, dummy_type_magma_kprimme *evecsHat,
       PRIMME_INT ldevecsHat, dummy_type_cprimme *Mfact, int *ipivot, dummy_type_sprimme *lockedEvals,
       int numLocked, int numConvergedStored, dummy_type_sprimme *ritzVals,
-      dummy_type_sprimme *prevRitzVals, int *numPrevRitzVals, int *flags, int basisSize,
+      dummy_type_sprimme *prevRitzVals, int *numPrevRitzVals, dummy_type_cprimme *prevhVecs,
+      int ldprevhVecs, int nprevhVecs, int *flags, int basisSize,
       dummy_type_sprimme *blockNorms, int *iev, int blockSize, int *touch, double startTime,
       primme_context ctx);
 dummy_type_sprimme computeRobustShiftmagma_kprimme(int blockIndex, double resNorm,
@@ -483,12 +520,15 @@ int setup_JD_projectorsmagma_kprimme(dummy_type_magma_kprimme *x, PRIMME_INT ldx
       PRIMME_INT *ldRprojectorX, int *sizeLprojectorQ, int *sizeLprojectorX,
       int *sizeRprojectorQ, int *sizeRprojectorX, int numLocked,
       int numConverged, int blockSize, primme_context ctx);
+void convTestFun_innermagma_kprimme(double *eval, void *evec, double *rNorm,
+      int *isConv, primme_params *primme, int *ierr);
 int solve_correction_magma_sprimme(dummy_type_magma_sprimme *V, PRIMME_INT ldV, dummy_type_magma_sprimme *W,
       PRIMME_INT ldW, dummy_type_magma_sprimme *BV, PRIMME_INT ldBV, dummy_type_magma_sprimme *evecs,
       PRIMME_INT ldevecs, dummy_type_magma_sprimme *Bevecs, PRIMME_INT ldBevecs, dummy_type_magma_sprimme *evecsHat,
       PRIMME_INT ldevecsHat, dummy_type_sprimme *Mfact, int *ipivot, dummy_type_sprimme *lockedEvals,
       int numLocked, int numConvergedStored, dummy_type_sprimme *ritzVals,
-      dummy_type_sprimme *prevRitzVals, int *numPrevRitzVals, int *flags, int basisSize,
+      dummy_type_sprimme *prevRitzVals, int *numPrevRitzVals, dummy_type_sprimme *prevhVecs,
+      int ldprevhVecs, int nprevhVecs, int *flags, int basisSize,
       dummy_type_sprimme *blockNorms, int *iev, int blockSize, int *touch, double startTime,
       primme_context ctx);
 dummy_type_sprimme computeRobustShiftmagma_sprimme(int blockIndex, double resNorm,
@@ -512,12 +552,15 @@ int setup_JD_projectorsmagma_sprimme(dummy_type_magma_sprimme *x, PRIMME_INT ldx
       PRIMME_INT *ldRprojectorX, int *sizeLprojectorQ, int *sizeLprojectorX,
       int *sizeRprojectorQ, int *sizeRprojectorX, int numLocked,
       int numConverged, int blockSize, primme_context ctx);
+void convTestFun_innermagma_sprimme(double *eval, void *evec, double *rNorm,
+      int *isConv, primme_params *primme, int *ierr);
 int solve_correction_magma_cprimme_normal(dummy_type_magma_cprimme *V, PRIMME_INT ldV, dummy_type_magma_cprimme *W,
       PRIMME_INT ldW, dummy_type_magma_cprimme *BV, PRIMME_INT ldBV, dummy_type_magma_cprimme *evecs,
       PRIMME_INT ldevecs, dummy_type_magma_cprimme *Bevecs, PRIMME_INT ldBevecs, dummy_type_magma_cprimme *evecsHat,
       PRIMME_INT ldevecsHat, dummy_type_cprimme *Mfact, int *ipivot, dummy_type_cprimme *lockedEvals,
       int numLocked, int numConvergedStored, dummy_type_cprimme *ritzVals,
-      dummy_type_cprimme *prevRitzVals, int *numPrevRitzVals, int *flags, int basisSize,
+      dummy_type_cprimme *prevRitzVals, int *numPrevRitzVals, dummy_type_cprimme *prevhVecs,
+      int ldprevhVecs, int nprevhVecs, int *flags, int basisSize,
       dummy_type_sprimme *blockNorms, int *iev, int blockSize, int *touch, double startTime,
       primme_context ctx);
 dummy_type_sprimme computeRobustShiftmagma_cprimme_normal(int blockIndex, double resNorm,
@@ -541,12 +584,15 @@ int setup_JD_projectorsmagma_cprimme_normal(dummy_type_magma_cprimme *x, PRIMME_
       PRIMME_INT *ldRprojectorX, int *sizeLprojectorQ, int *sizeLprojectorX,
       int *sizeRprojectorQ, int *sizeRprojectorX, int numLocked,
       int numConverged, int blockSize, primme_context ctx);
+void convTestFun_innermagma_cprimme_normal(double *eval, void *evec, double *rNorm,
+      int *isConv, primme_params *primme, int *ierr);
 int solve_correction_magma_cprimme(dummy_type_magma_cprimme *V, PRIMME_INT ldV, dummy_type_magma_cprimme *W,
       PRIMME_INT ldW, dummy_type_magma_cprimme *BV, PRIMME_INT ldBV, dummy_type_magma_cprimme *evecs,
       PRIMME_INT ldevecs, dummy_type_magma_cprimme *Bevecs, PRIMME_INT ldBevecs, dummy_type_magma_cprimme *evecsHat,
       PRIMME_INT ldevecsHat, dummy_type_cprimme *Mfact, int *ipivot, dummy_type_sprimme *lockedEvals,
       int numLocked, int numConvergedStored, dummy_type_sprimme *ritzVals,
-      dummy_type_sprimme *prevRitzVals, int *numPrevRitzVals, int *flags, int basisSize,
+      dummy_type_sprimme *prevRitzVals, int *numPrevRitzVals, dummy_type_cprimme *prevhVecs,
+      int ldprevhVecs, int nprevhVecs, int *flags, int basisSize,
       dummy_type_sprimme *blockNorms, int *iev, int blockSize, int *touch, double startTime,
       primme_context ctx);
 dummy_type_sprimme computeRobustShiftmagma_cprimme(int blockIndex, double resNorm,
@@ -570,12 +616,15 @@ int setup_JD_projectorsmagma_cprimme(dummy_type_magma_cprimme *x, PRIMME_INT ldx
       PRIMME_INT *ldRprojectorX, int *sizeLprojectorQ, int *sizeLprojectorX,
       int *sizeRprojectorQ, int *sizeRprojectorX, int numLocked,
       int numConverged, int blockSize, primme_context ctx);
+void convTestFun_innermagma_cprimme(double *eval, void *evec, double *rNorm,
+      int *isConv, primme_params *primme, int *ierr);
 int solve_correction_magma_dprimme(dummy_type_magma_dprimme *V, PRIMME_INT ldV, dummy_type_magma_dprimme *W,
       PRIMME_INT ldW, dummy_type_magma_dprimme *BV, PRIMME_INT ldBV, dummy_type_magma_dprimme *evecs,
       PRIMME_INT ldevecs, dummy_type_magma_dprimme *Bevecs, PRIMME_INT ldBevecs, dummy_type_magma_dprimme *evecsHat,
       PRIMME_INT ldevecsHat, dummy_type_dprimme *Mfact, int *ipivot, dummy_type_dprimme *lockedEvals,
       int numLocked, int numConvergedStored, dummy_type_dprimme *ritzVals,
-      dummy_type_dprimme *prevRitzVals, int *numPrevRitzVals, int *flags, int basisSize,
+      dummy_type_dprimme *prevRitzVals, int *numPrevRitzVals, dummy_type_dprimme *prevhVecs,
+      int ldprevhVecs, int nprevhVecs, int *flags, int basisSize,
       dummy_type_dprimme *blockNorms, int *iev, int blockSize, int *touch, double startTime,
       primme_context ctx);
 dummy_type_dprimme computeRobustShiftmagma_dprimme(int blockIndex, double resNorm,
@@ -599,12 +648,15 @@ int setup_JD_projectorsmagma_dprimme(dummy_type_magma_dprimme *x, PRIMME_INT ldx
       PRIMME_INT *ldRprojectorX, int *sizeLprojectorQ, int *sizeLprojectorX,
       int *sizeRprojectorQ, int *sizeRprojectorX, int numLocked,
       int numConverged, int blockSize, primme_context ctx);
+void convTestFun_innermagma_dprimme(double *eval, void *evec, double *rNorm,
+      int *isConv, primme_params *primme, int *ierr);
 int solve_correction_magma_zprimme_normal(dummy_type_magma_zprimme *V, PRIMME_INT ldV, dummy_type_magma_zprimme *W,
       PRIMME_INT ldW, dummy_type_magma_zprimme *BV, PRIMME_INT ldBV, dummy_type_magma_zprimme *evecs,
       PRIMME_INT ldevecs, dummy_type_magma_zprimme *Bevecs, PRIMME_INT ldBevecs, dummy_type_magma_zprimme *evecsHat,
       PRIMME_INT ldevecsHat, dummy_type_zprimme *Mfact, int *ipivot, dummy_type_zprimme *lockedEvals,
       int numLocked, int numConvergedStored, dummy_type_zprimme *ritzVals,
-      dummy_type_zprimme *prevRitzVals, int *numPrevRitzVals, int *flags, int basisSize,
+      dummy_type_zprimme *prevRitzVals, int *numPrevRitzVals, dummy_type_zprimme *prevhVecs,
+      int ldprevhVecs, int nprevhVecs, int *flags, int basisSize,
       dummy_type_dprimme *blockNorms, int *iev, int blockSize, int *touch, double startTime,
       primme_context ctx);
 dummy_type_dprimme computeRobustShiftmagma_zprimme_normal(int blockIndex, double resNorm,
@@ -628,12 +680,15 @@ int setup_JD_projectorsmagma_zprimme_normal(dummy_type_magma_zprimme *x, PRIMME_
       PRIMME_INT *ldRprojectorX, int *sizeLprojectorQ, int *sizeLprojectorX,
       int *sizeRprojectorQ, int *sizeRprojectorX, int numLocked,
       int numConverged, int blockSize, primme_context ctx);
+void convTestFun_innermagma_zprimme_normal(double *eval, void *evec, double *rNorm,
+      int *isConv, primme_params *primme, int *ierr);
 int solve_correction_magma_zprimme(dummy_type_magma_zprimme *V, PRIMME_INT ldV, dummy_type_magma_zprimme *W,
       PRIMME_INT ldW, dummy_type_magma_zprimme *BV, PRIMME_INT ldBV, dummy_type_magma_zprimme *evecs,
       PRIMME_INT ldevecs, dummy_type_magma_zprimme *Bevecs, PRIMME_INT ldBevecs, dummy_type_magma_zprimme *evecsHat,
       PRIMME_INT ldevecsHat, dummy_type_zprimme *Mfact, int *ipivot, dummy_type_dprimme *lockedEvals,
       int numLocked, int numConvergedStored, dummy_type_dprimme *ritzVals,
-      dummy_type_dprimme *prevRitzVals, int *numPrevRitzVals, int *flags, int basisSize,
+      dummy_type_dprimme *prevRitzVals, int *numPrevRitzVals, dummy_type_zprimme *prevhVecs,
+      int ldprevhVecs, int nprevhVecs, int *flags, int basisSize,
       dummy_type_dprimme *blockNorms, int *iev, int blockSize, int *touch, double startTime,
       primme_context ctx);
 dummy_type_dprimme computeRobustShiftmagma_zprimme(int blockIndex, double resNorm,
@@ -657,4 +712,6 @@ int setup_JD_projectorsmagma_zprimme(dummy_type_magma_zprimme *x, PRIMME_INT ldx
       PRIMME_INT *ldRprojectorX, int *sizeLprojectorQ, int *sizeLprojectorX,
       int *sizeRprojectorQ, int *sizeRprojectorX, int numLocked,
       int numConverged, int blockSize, primme_context ctx);
+void convTestFun_innermagma_zprimme(double *eval, void *evec, double *rNorm,
+      int *isConv, primme_params *primme, int *ierr);
 #endif

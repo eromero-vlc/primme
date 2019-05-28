@@ -51,7 +51,7 @@ primme_params
       :param primme: parameters structure.
       :param ierr: output error code; if it is set to non-zero, the current call to PRIMME will stop.
 
-      The actual type of ``x`` and ``y`` depends on which function is being calling. For :c:func:`dprimme`, it is ``double``,
+      The actual type of ``x`` and ``y`` depends on |matrixMatvec_type| and the function is being calling. The type is real if the calling function is real (:c:func:`dprimme` and the  and other single thread:c:func:`dprimme`, it is ``double``,
       for :c:func:`zprimme` it is :c:type:`PRIMME_COMPLEX_DOUBLE`, for :c:func:`sprimme` it is ``float`` and
       for :c:func:`cprimme` it is :c:type:`PRIMME_COMPLEX_FLOAT`.
 
@@ -689,21 +689,6 @@ primme_params
          | :c:func:`primme_initialize` sets this field to |primme_proj_default|;
          | :c:func:`primme_set_method` and :c:func:`dprimme` sets it to |primme_proj_RR| if it is |primme_proj_default|.
  
-   .. c:member:: primme_restartscheme restartingParams.scheme
-
-      Select a restarting strategy:
-
-      * ``primme_thick``, Thick restarting. This is the most efficient and robust
-        in the general case.
-      * ``primme_dtr``, Dynamic thick restarting. Helpful without 
-        preconditioning but it is expensive to implement.
-
-      Input/output:
-
-         | :c:func:`primme_initialize` sets this field to |primme_thick|;
-         | written by :c:func:`primme_set_method` (see :ref:`methods`);
-         | this field is read by :c:func:`dprimme`.
-
    .. c:member:: int restartingParams.maxPrevRetain
 
       Number of approximations from previous iteration to be retained

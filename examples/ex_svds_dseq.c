@@ -177,35 +177,40 @@ int main (int argc, char *argv[]) {
         [ 0  0  0  0  0 ... en-1]
 */
 
-void LauchliMatrixMatvec(void *x, PRIMME_INT *ldx, void *y, PRIMME_INT *ldy, int *blockSize,
-                         int *transpose, primme_svds_params *primme_svds, int *err) {
-   
-   int i;            /* vector index, from 0 to *blockSize-1 */
+void LauchliMatrixMatvec(void *x, PRIMME_INT *ldx, void *y, PRIMME_INT *ldy,
+      int *blockSize, int *transpose, primme_svds_params *primme_svds,
+      int *err) {
+
+   int i; /* vector index, from 0 to *blockSize-1 */
    int j;
    int min_m_n = min(primme_svds->m, primme_svds->n);
-   double *xvec;     /* pointer to i-th input vector x */
-   double *yvec;     /* pointer to i-th output vector y */
-   double mu = *(double*)primme_svds->matrix;
+   double *xvec; /* pointer to i-th input vector x */
+   double *yvec; /* pointer to i-th output vector y */
+   double mu = *(double *)primme_svds->matrix;
 
    if (*transpose == 0) { /* Do y <- A * x */
-      for (i=0; i<*blockSize; i++) { 
-         xvec = (double *)x + (*ldx)*i;
-         yvec = (double *)y + (*ldy)*i;
-         yvec[0] = 0;
-         for (j=0; j<primme_svds->n; j++) {
-            yvec[0] += xvec[j];
+      for (i = 0; i < *blockSize; i++) {
+         xvec = (double *)x + (*ldx) * i;
+         yvec = (double *)y + (*ldy) * i;
+         if (0 < primme_svds->m) {
+            yvec[0] = 0;
+            for (j = 0; j < primme_svds->n; j++) { yvec[0] += xvec[j]; }
          }
-         for (j=1; j<primme_svds->m; j++) {
-            yvec[j] = j-1<primme_svds->n ? xvec[j-1]*(1.0 - (1.0 - mu)*(j-1)/(min_m_n - 1)) : 0.0;
-         }      
+         for (j = 1; j < primme_svds->m; j++) {
+            yvec[j] = j - 1 < primme_svds->n
+                            ? xvec[j - 1] *
+                                    (1.0 - (1.0 - mu) * (j - 1) / (min_m_n - 1))
+                            : 0.0;
+         }
       }
    } else { /* Do y <- A^t * x */
-      for (i=0; i<*blockSize; i++) {
-         xvec = (double *)x + (*ldx)*i;
-         yvec = (double *)y + (*ldy)*i;
-         for (j=0; j<primme_svds->n; j++) {
+      for (i = 0; i < *blockSize; i++) {
+         xvec = (double *)x + (*ldx) * i;
+         yvec = (double *)y + (*ldy) * i;
+         for (j = 0; j < primme_svds->n; j++) {
             yvec[j] = xvec[0];
-            if (j+1 < primme_svds->m) yvec[j] += xvec[j+1]*(1.0 - (1.0 - mu)*j/(min_m_n - 1));
+            if (j + 1 < primme_svds->m)
+               yvec[j] += xvec[j + 1] * (1.0 - (1.0 - mu) * j / (min_m_n - 1));
          }
       }
    }

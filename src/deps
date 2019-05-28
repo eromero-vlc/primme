@@ -2,7 +2,7 @@
 eigs/auxiliary_eigs*.o : eigs/auxiliary_eigs.h eigs/common_eigs.h include/numerical.h
 eigs/auxiliary_eigs_normal*.o : eigs/auxiliary_eigs.h eigs/auxiliary_eigs_normal.h eigs/common_eigs.h eigs/template_normal.h include/numerical.h
 eigs/convergence*.o : eigs/auxiliary_eigs.h eigs/auxiliary_eigs_normal.h eigs/common_eigs.h eigs/convergence.h eigs/ortho.h eigs/template_normal.h include/numerical.h
-eigs/correction*.o : eigs/auxiliary_eigs.h eigs/common_eigs.h eigs/correction.h eigs/inner_solve.h eigs/template_normal.h include/numerical.h
+eigs/correction*.o : eigs/auxiliary_eigs.h eigs/common_eigs.h eigs/correction.h eigs/inner_solve.h eigs/template_normal.h include/numerical.h include/primme_interface.h
 eigs/factorize*.o : eigs/factorize.h eigs/update_projection.h include/numerical.h
 eigs/init*.o : eigs/auxiliary_eigs.h eigs/factorize.h eigs/init.h eigs/ortho.h eigs/update_W.h include/numerical.h
 eigs/inner_solve*.o : eigs/auxiliary_eigs.h eigs/auxiliary_eigs_normal.h eigs/common_eigs.h eigs/factorize.h eigs/inner_solve.h eigs/template_normal.h eigs/update_W.h include/numerical.h
@@ -18,7 +18,7 @@ eigs/update_W*.o : eigs/auxiliary_eigs.h eigs/auxiliary_eigs_normal.h eigs/commo
 linalg/auxiliary*.o : include/numerical.h
 linalg/blaslapack*.o : include/numerical.h linalg/blaslapack_private.h
 linalg/magma_wrapper*.o : include/numerical.h
-linalg/memman*.o : include/notemplate.h include/numerical.h
+linalg/memman*.o : include/common.h include/memman.h
 linalg/wtime*.o : include/wtime.h
 svds/primme_svds_c*.o : include/numerical.h include/primme_interface.h svds/../eigs/common_eigs.h svds/primme_svds_c.h svds/primme_svds_interface.h
 svds/primme_svds_f77*.o : include/numerical.h svds/primme_svds_interface.h
