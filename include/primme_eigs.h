@@ -115,6 +115,7 @@ typedef struct primme_stats {
    PRIMME_INT numBroadcast;         /* times called broadcastReal */
    PRIMME_INT volumeGlobalSum;      /* number of SCALARs reduced by globalSumReal */
    PRIMME_INT volumeBroadcast;      /* number of SCALARs broadcast by broadcastReal */
+   double flopsDense;               /* FLOPS done by Num_update_VWXR_Sprimme */
    double numOrthoInnerProds;       /* number of inner prods done by Ortho */
    double elapsedTime; 
    double timeMatvec;               /* time expend by matrixMatvec */
@@ -122,6 +123,7 @@ typedef struct primme_stats {
    double timeOrtho;                /* time expend by ortho  */
    double timeGlobalSum;            /* time expend by globalSumReal  */
    double timeBroadcast;            /* time expend by broadcastReal  */
+   double timeDense;                /* time expend by Num_update_VWXR_Sprimme */
    double estimateMinEVal;          /* the leftmost Ritz value seen */
    double estimateMaxEVal;          /* the rightmost Ritz value seen */
    double estimateLargestSVal;      /* absolute value of the farthest to zero Ritz value seen */

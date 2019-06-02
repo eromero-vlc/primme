@@ -770,12 +770,15 @@ STATIC int apply_skew_projector(SCALAR *Q, PRIMME_INT ldQ, SCALAR *Qhat,
 
    if (numCols <= 0 || blockSize <= 0) return 0;
 
+   double t0 = primme_wTimer();
+
    HSCALAR *overlaps; /* overlaps of v with columns of Q   */
    CHKERR(Num_malloc_SHprimme(numCols * blockSize, &overlaps, ctx));
 
    /* Compute workspace = Q'*v */
    CHKERR(Num_gemm_ddh_Sprimme("C", "N", numCols, blockSize, primme->nLocal,
          1.0, Q, ldQ, v, ldv, 0.0, overlaps, numCols, ctx));
+   if (primme) primme->stats.numOrthoInnerProds += numCols * blockSize;
 
    /* Global sum: overlaps = Q'*v */
    CHKERR(globalSum_SHprimme(overlaps, numCols * blockSize, ctx));
@@ -794,6 +797,8 @@ STATIC int apply_skew_projector(SCALAR *Q, PRIMME_INT ldQ, SCALAR *Qhat,
          -1.0, Qhat, ldQhat, overlaps, numCols, 1.0, v, ldv, ctx));
 
    CHKERR(Num_free_SHprimme(overlaps, ctx));
+
+   if (primme) primme->stats.timeOrtho += primme_wTimer() - t0;
 
    return 0;
 }

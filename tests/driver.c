@@ -219,6 +219,11 @@ static int real_main (int argc, char *argv[]) {
    /* --------------------------------------- */
 
    if (master) {
+      if (read_solver_params(SolverConfigFileName, driver.outputFileName, 
+                           &primme, "primme.", &method, "method") < 0) {
+         fprintf(stderr, "Reading solver parameters failed\n");
+         return(-1);
+      }
       driver_display_params(driver, primme.outputFile); 
       primme_display_params(primme);
       driver_display_method(method, "method", primme.outputFile);

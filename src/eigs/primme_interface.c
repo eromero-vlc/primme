@@ -155,6 +155,8 @@ void primme_initialize(primme_params *primme) {
    primme->stats.numMatvecs                    = 0;
    primme->stats.numPreconds                   = 0;
    primme->stats.numGlobalSum                  = 0;
+   primme->stats.flopsDense                    = 0.0;
+   primme->stats.timeDense                     = 0;
    primme->stats.volumeGlobalSum               = 0;
    primme->stats.numBroadcast                  = 0;
    primme->stats.volumeBroadcast               = 0;

@@ -129,9 +129,12 @@ int main (int argc, char *argv[]) {
    fprintf(primme.outputFile, "Matvecs   : %-" PRIMME_INT_P "\n", primme.stats.numMatvecs);
    fprintf(primme.outputFile, "Preconds  : %-" PRIMME_INT_P "\n", primme.stats.numPreconds);
      fprintf(primme.outputFile, "Orthogonalization Time : %g\n", primme.stats.timeOrtho);
+     fprintf(primme.outputFile, "Num inner prods        : %g\n", (double)primme.stats.numOrthoInnerProds);
      fprintf(primme.outputFile, "Matvec Time            : %g\n", primme.stats.timeMatvec);
      fprintf(primme.outputFile, "GlobalSum Time         : %g\n", primme.stats.timeGlobalSum);
      fprintf(primme.outputFile, "Broadcast Time         : %g\n", primme.stats.timeBroadcast);
+     fprintf(primme.outputFile, "Dense Time             : %g\n", primme.stats.timeDense);
+     fprintf(primme.outputFile, "FLOPS Dense            : %g\n", primme.stats.flopsDense);
      fprintf(primme.outputFile, "Total Time             : %g\n", primme.stats.elapsedTime);
    if (primme.stats.lockingIssue) {
       fprintf(primme.outputFile, "\nA locking problem has occurred.\n");

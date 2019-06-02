@@ -56,12 +56,14 @@
    (PRIMME_STATS_LEFT).numBroadcast       OP  (PRIMME_STATS_RIGHT).numBroadcast      ;\
    (PRIMME_STATS_LEFT).volumeGlobalSum    OP  (PRIMME_STATS_RIGHT).volumeGlobalSum   ;\
    (PRIMME_STATS_LEFT).volumeBroadcast    OP  (PRIMME_STATS_RIGHT).volumeBroadcast   ;\
+   (PRIMME_STATS_LEFT).flopsDense         OP  (PRIMME_STATS_RIGHT).flopsDense        ;\
    (PRIMME_STATS_LEFT).numOrthoInnerProds OP  (PRIMME_STATS_RIGHT).numOrthoInnerProds;\
    (PRIMME_STATS_LEFT).timeMatvec         OP  (PRIMME_STATS_RIGHT).timeMatvec        ;\
    (PRIMME_STATS_LEFT).timePrecond        OP  (PRIMME_STATS_RIGHT).timePrecond       ;\
    (PRIMME_STATS_LEFT).timeOrtho          OP  (PRIMME_STATS_RIGHT).timeOrtho         ;\
    (PRIMME_STATS_LEFT).timeGlobalSum      OP  (PRIMME_STATS_RIGHT).timeGlobalSum     ;\
    (PRIMME_STATS_LEFT).timeBroadcast      OP  (PRIMME_STATS_RIGHT).timeBroadcast     ;\
+   (PRIMME_STATS_LEFT).timeDense          OP  (PRIMME_STATS_RIGHT).timeDense         ;\
 }
 #endif
 
@@ -267,6 +269,7 @@ int solve_correction_Sprimme(SCALAR *V, PRIMME_INT ldV, SCALAR *W,
       *numPrevRitzVals = basisSize;
       CHKERR(KIND(Num_copy_RHprimme, Num_copy_SHprimme)(
             *numPrevRitzVals, sortedRitzVals, 1, prevRitzVals, 1, ctx));
+      if (blockSize > 0) printf("shift %g\n",  blockOfShifts[0]);
 
    } /* user provided shifts */
 #ifdef USE_HERMITIAN
@@ -511,18 +514,20 @@ int solve_correction_Sprimme(SCALAR *V, PRIMME_INT ldV, SCALAR *W,
          primme_inner.locking = 0;
       }
       primme_inner.maxBlockSize = 1;
-      primme_inner.projectionParams.projection = primme_proj_refined;
+      primme_inner.projectionParams.projection = primme_proj_harmonic;
       primme_inner.maxMatvecs =
             min(max(-primme->correctionParams.maxInnerIterations + 2, 5) *
                         blockSize,
                   primme->maxMatvecs - primme->stats.numMatvecs);
       primme_inner.convTestFun = convTestFun_inner;
-      primme_inner.initBasisMode = primme_init_user;
       // primme_inner.aNorm = max(primme->aNorm,
       //       primme->stats.estimateLargestSVal / primme->stats.estimateInvBNorm);
       // primme_inner.invBNorm =
       //       max(primme->invBNorm, primme->stats.estimateInvBNorm);
       primme_set_method(PRIMME_LOBPCG_OrthoBasis_Window, &primme_inner);
+      //primme_inner.restartingParams.maxPrevRetain++;
+      //primme_inner.maxBasisSize++;
+      primme_inner.initBasisMode = primme_init_user;
 
       HEVAL *evals_inner;
       SCALAR *evecs_inner;
@@ -541,14 +546,17 @@ int solve_correction_Sprimme(SCALAR *V, PRIMME_INT ldV, SCALAR *W,
       CHKERR(Num_copy_matrix_Sprimme(&W[ldW * basisSize], primme->nLocal,
             blockSize, ldW, &evecs_inner[primme->nLocal * blockSize],
             primme->nLocal, ctx));
+      //CHKERR(applyPreconditioner_Sprimme(&W[ldW * basisSize], primme->nLocal,
+      //      ldW, &evecs_inner[primme->nLocal * blockSize], primme->nLocal,
+      //      blockSize, ctx));
       if (primme_inner.initSize > blockSize * 2) {
          HSCALAR *Y;
          CHKERR(Num_malloc_SHprimme(basisSize * blockSize, &Y, ctx));
          CHKERR(Num_copy_matrix_columns_SHprimme(prevhVecs, basisSize, iev,
                blockSize, ldprevhVecs, Y, NULL, basisSize, ctx));
-         CHKERR(
-               Num_zero_matrix_Sprimme(&evecs_inner[primme->nLocal * blockSize],
-                     primme->nLocal, blockSize, primme->nLocal, ctx));
+         CHKERR(Num_zero_matrix_Sprimme(
+               &evecs_inner[primme->nLocal * blockSize * 2], primme->nLocal,
+               blockSize, primme->nLocal, ctx));
          CHKERR(Num_gemm_Sprimme("N", "N", primme->nLocal, blockSize, basisSize,
                1.0, V, ldV, Y, basisSize, 0.0,
                &evecs_inner[primme->nLocal * blockSize * 2], primme->nLocal,
@@ -1108,8 +1116,9 @@ STATIC void convTestFun_inner(double *eval, void *evec, double *rNorm,
    /* Call actual convTestFun */
 
    primme_params *primme_original = (primme_params *)primme->convtest;
+   double r = (*rNorm) * min(sqrt(primme_original->numEvals), 10.0);
    primme_original->convTestFun(
-         eval, evec, rNorm, isConv, primme_original, ierr);
+         eval, evec, &r, isConv, primme_original, ierr);
 
    /* Mark the pair as converged when running out of matvecs */
 

@@ -365,13 +365,18 @@ int main_iter_Sprimme(HEVAL *evals, SCALAR *evecs, PRIMME_INT ldevecs,
    primme->stats.numMatvecs                    = 0;
    primme->stats.numPreconds                   = 0;
    primme->stats.numGlobalSum                  = 0;
+   primme->stats.numBroadcast                  = 0;
    primme->stats.volumeGlobalSum               = 0;
+   primme->stats.volumeBroadcast               = 0;
+   primme->stats.flopsDense                    = 0;
    primme->stats.numOrthoInnerProds            = 0.0;
    primme->stats.elapsedTime                   = 0.0;
    primme->stats.timeMatvec                    = 0.0;
    primme->stats.timePrecond                   = 0.0;
    primme->stats.timeOrtho                     = 0.0;
    primme->stats.timeGlobalSum                 = 0.0;
+   primme->stats.timeBroadcast                 = 0.0;
+   primme->stats.timeDense                     = 0.0;
    primme->stats.estimateMinEVal               = HUGE_VAL;
    primme->stats.estimateMaxEVal               = -HUGE_VAL;
    primme->stats.estimateLargestSVal           = -HUGE_VAL;
@@ -379,6 +384,7 @@ int main_iter_Sprimme(HEVAL *evals, SCALAR *evecs, PRIMME_INT ldevecs,
    primme->stats.estimateInvBNorm              = primme->massMatrixMatvec ? -HUGE_VAL : 1.0;
    primme->stats.maxConvTol                    = 0.0;
    primme->stats.estimateResidualError         = 0.0;
+   primme->stats.lockingIssue                  = 0;
 
    numLocked = 0;
    converged = 0;
