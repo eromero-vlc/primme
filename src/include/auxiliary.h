@@ -219,6 +219,97 @@ int Num_matrix_astype_dprimme(void *x, PRIMME_INT m, PRIMME_INT n,
 int Num_matrix_astype_iprimme(void *x, PRIMME_INT m, PRIMME_INT n,
       PRIMME_INT ldx, primme_op_datatype xt, void **y, PRIMME_INT *ldy,
       primme_op_datatype yt, int do_alloc, int do_copy, primme_context ctx);
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_Sprimme)
+#  define Num_sizeof_Sprimme CONCAT(Num_sizeof_,SCALAR_SUF)
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_Rprimme)
+#  define Num_sizeof_Rprimme CONCAT(Num_sizeof_,REAL_SUF)
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_SHprimme)
+#  define Num_sizeof_SHprimme CONCAT(Num_sizeof_,HOST_SCALAR_SUF)
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_RHprimme)
+#  define Num_sizeof_RHprimme CONCAT(Num_sizeof_,HOST_REAL_SUF)
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_SXprimme)
+#  define Num_sizeof_SXprimme CONCAT(Num_sizeof_,XSCALAR_SUF)
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_RXprimme)
+#  define Num_sizeof_RXprimme CONCAT(Num_sizeof_,XREAL_SUF)
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_Shprimme)
+#  define Num_sizeof_Shprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(STEM_C,USE_ARITH(h,k)),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_Rhprimme)
+#  define Num_sizeof_Rhprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(STEM_C,h),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_Ssprimme)
+#  define Num_sizeof_Ssprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(STEM_C,USE_ARITH(s,c)),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_Rsprimme)
+#  define Num_sizeof_Rsprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(STEM_C,s),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_Sdprimme)
+#  define Num_sizeof_Sdprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(STEM_C,USE_ARITH(d,z)),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_Rdprimme)
+#  define Num_sizeof_Rdprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(STEM_C,d),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_Sqprimme)
+#  define Num_sizeof_Sqprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(STEM_C,USE_ARITH(q,w)),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_Rqprimme)
+#  define Num_sizeof_Rqprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(STEM_C,q),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_SXhprimme)
+#  define Num_sizeof_SXhprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(,USE_ARITH(h,k)),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_RXhprimme)
+#  define Num_sizeof_RXhprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(,h),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_SXsprimme)
+#  define Num_sizeof_SXsprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(,USE_ARITH(s,c)),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_RXsprimme)
+#  define Num_sizeof_RXsprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(,s),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_SXdprimme)
+#  define Num_sizeof_SXdprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(,USE_ARITH(d,z)),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_RXdprimme)
+#  define Num_sizeof_RXdprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(,d),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_SXqprimme)
+#  define Num_sizeof_SXqprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(,USE_ARITH(q,w)),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_RXqprimme)
+#  define Num_sizeof_RXqprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(,q),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_SHhprimme)
+#  define Num_sizeof_SHhprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(,USE_ARITH(s,c)),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_RHhprimme)
+#  define Num_sizeof_RHhprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(,s),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_SHsprimme)
+#  define Num_sizeof_SHsprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(,USE_ARITH(s,c)),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_RHsprimme)
+#  define Num_sizeof_RHsprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(,s),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_SHdprimme)
+#  define Num_sizeof_SHdprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(,USE_ARITH(d,z)),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_RHdprimme)
+#  define Num_sizeof_RHdprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(,d),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_SHqprimme)
+#  define Num_sizeof_SHqprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(,USE_ARITH(q,w)),primme),))
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(Num_sizeof_RHqprimme)
+#  define Num_sizeof_RHqprimme CONCAT(Num_sizeof_,CONCAT(CONCAT(CONCAT(,q),primme),))
+#endif
+int Num_sizeof_dprimme(primme_op_datatype t, size_t *s);
 #if !defined(CHECK_TEMPLATE) && !defined(Num_copy_matrix_conj_Sprimme)
 #  define Num_copy_matrix_conj_Sprimme CONCAT(Num_copy_matrix_conj_,SCALAR_SUF)
 #endif
@@ -1328,6 +1419,7 @@ int Num_scale_matrix_dprimme(dummy_type_dprimme *x, PRIMME_INT m, PRIMME_INT n,
 int Num_matrix_astype_hprimme(void *x, PRIMME_INT m, PRIMME_INT n,
       PRIMME_INT ldx, primme_op_datatype xt, void **y, PRIMME_INT *ldy,
       primme_op_datatype yt, int do_alloc, int do_copy, primme_context ctx);
+int Num_sizeof_hprimme(primme_op_datatype t, size_t *s);
 int Num_copy_matrix_conj_hprimme(dummy_type_hprimme *x, PRIMME_INT m, PRIMME_INT n,
       PRIMME_INT ldx, dummy_type_hprimme *y, PRIMME_INT ldy, primme_context ctx);
 int Num_copy_trimatrix_hprimme(dummy_type_hprimme *x, int m, int n, int ldx, int ul,
@@ -1352,6 +1444,7 @@ int Num_scale_matrix_hprimme(dummy_type_hprimme *x, PRIMME_INT m, PRIMME_INT n,
 int Num_matrix_astype_kprimme(void *x, PRIMME_INT m, PRIMME_INT n,
       PRIMME_INT ldx, primme_op_datatype xt, void **y, PRIMME_INT *ldy,
       primme_op_datatype yt, int do_alloc, int do_copy, primme_context ctx);
+int Num_sizeof_kprimme(primme_op_datatype t, size_t *s);
 int Num_copy_trimatrix_kprimme(dummy_type_kprimme *x, int m, int n, int ldx, int ul,
       int i0, dummy_type_kprimme *y, int ldy, int zero);
 int Num_copy_trimatrix_compact_kprimme(dummy_type_kprimme *x, PRIMME_INT m, int n,
@@ -1374,6 +1467,7 @@ int Num_scale_matrix_kprimme(dummy_type_kprimme *x, PRIMME_INT m, PRIMME_INT n,
 int Num_matrix_astype_sprimme(void *x, PRIMME_INT m, PRIMME_INT n,
       PRIMME_INT ldx, primme_op_datatype xt, void **y, PRIMME_INT *ldy,
       primme_op_datatype yt, int do_alloc, int do_copy, primme_context ctx);
+int Num_sizeof_sprimme(primme_op_datatype t, size_t *s);
 int Num_copy_matrix_conj_sprimme(dummy_type_sprimme *x, PRIMME_INT m, PRIMME_INT n,
       PRIMME_INT ldx, dummy_type_sprimme *y, PRIMME_INT ldy, primme_context ctx);
 int Num_copy_trimatrix_sprimme(dummy_type_sprimme *x, int m, int n, int ldx, int ul,
@@ -1400,6 +1494,7 @@ int Num_scale_matrix_sprimme(dummy_type_sprimme *x, PRIMME_INT m, PRIMME_INT n,
 int Num_matrix_astype_cprimme(void *x, PRIMME_INT m, PRIMME_INT n,
       PRIMME_INT ldx, primme_op_datatype xt, void **y, PRIMME_INT *ldy,
       primme_op_datatype yt, int do_alloc, int do_copy, primme_context ctx);
+int Num_sizeof_cprimme(primme_op_datatype t, size_t *s);
 int Num_copy_matrix_conj_cprimme(dummy_type_cprimme *x, PRIMME_INT m, PRIMME_INT n,
       PRIMME_INT ldx, dummy_type_cprimme *y, PRIMME_INT ldy, primme_context ctx);
 int Num_copy_trimatrix_cprimme(dummy_type_cprimme *x, int m, int n, int ldx, int ul,
@@ -1426,6 +1521,7 @@ int Num_scale_matrix_cprimme(dummy_type_cprimme *x, PRIMME_INT m, PRIMME_INT n,
 int Num_matrix_astype_zprimme(void *x, PRIMME_INT m, PRIMME_INT n,
       PRIMME_INT ldx, primme_op_datatype xt, void **y, PRIMME_INT *ldy,
       primme_op_datatype yt, int do_alloc, int do_copy, primme_context ctx);
+int Num_sizeof_zprimme(primme_op_datatype t, size_t *s);
 int Num_copy_matrix_conj_zprimme(dummy_type_zprimme *x, PRIMME_INT m, PRIMME_INT n,
       PRIMME_INT ldx, dummy_type_zprimme *y, PRIMME_INT ldy, primme_context ctx);
 int Num_copy_trimatrix_zprimme(dummy_type_zprimme *x, int m, int n, int ldx, int ul,

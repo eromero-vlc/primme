@@ -211,6 +211,48 @@ int Num_matrix_astype_iprimme(void *x, PRIMME_INT m, PRIMME_INT n,
 #endif /* USE_DOUBLE */
 
 /******************************************************************************
+ * Function Num_sizeof_Sprimme - Return the size of an element with the given
+ *    type.
+ *
+ * INPUT/OUTPUT PARAMETERS
+ * ---------------------------
+ * t    Type
+ *
+ * RETURN
+ * ------
+ * int  Size of the type in bytes
+ *
+ ******************************************************************************/
+
+TEMPLATE_PLEASE
+int Num_sizeof_Sprimme(primme_op_datatype t, size_t *s) {
+
+   if (t == primme_op_default) t = PRIMME_OP_SCALAR;
+
+   *s = 0;
+
+   switch(t) {
+#  ifdef SUPPORTED_HALF_TYPE
+   case primme_op_half:    *s = sizeof(PRIMME_HALF); break;
+#  endif
+   case primme_op_float:   *s = sizeof(float); break;
+   case primme_op_double:  *s = sizeof(double); break;
+#  ifdef PRIMME_WITH_NATIVE_QUAD
+   case primme_op_quad:    *s = sizeof(PRIMME_QUAD); break;
+#  endif
+   case primme_op_int:     *s = sizeof(int); break;
+   default:                return PRIMME_FUNCTION_UNAVAILABLE;
+   }
+
+#ifdef USE_COMPLEX
+   *s *= 2;
+#endif
+
+   return 0;
+}
+
+
+/******************************************************************************
  * Function Num_copy_matrix_conj - Copy the matrix x' into y
  *
  * PARAMETERS
