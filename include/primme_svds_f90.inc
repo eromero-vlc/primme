@@ -130,11 +130,11 @@ integer(kind=c_int64_t), parameter ::  primme_svds_op_augmented = 3
 !-------------------------------------------------------
 
 abstract interface
-   subroutine primme_svds_matvec(x, ldx, y, ldy, primme, blockSize, mode, ierr) bind(c)
+   subroutine primme_svds_matvec(x, ldx, y, ldy, blockSize, mode, primme_svds, ierr) bind(c)
       use iso_c_binding, only: c_ptr, c_int, c_int64_t
       integer(c_int64_t) :: ldx, ldy
       type(*) :: x(ldx,*), y(ldy,*)
-      type(c_ptr), value :: primme
+      type(c_ptr), value :: primme_svds
       integer(c_int) :: blockSize, mode, ierr
    end subroutine
 end interface
