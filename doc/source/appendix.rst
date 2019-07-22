@@ -93,7 +93,18 @@ primme_params
    .. c:member:: void (*applyPreconditioner)(void *x, PRIMME_INT *ldx, void *y, PRIMME_INT *ldy, int *blockSize, primme_params *primme, int *ierr)
 
       Block preconditioner-multivector application, :math:`y = M^{-1}x` where :math:`M` is usually an approximation of :math:`A - \sigma I` or :math:`A - \sigma B` for finding eigenvalues close to :math:`\sigma`.
-      The function follows the convention of |matrixMatvec|.
+
+      :param x: matrix of size |nLocal| x ``blockSize`` in column-major_ order with leading dimension ``ldx``.
+      :param ldx: the leading dimension of the array ``x``.
+      :param y: matrix of size |nLocal| x ``blockSize`` in column-major_ order with leading dimension ``ldy``.
+      :param ldy: the leading dimension of the array ``y``.
+      :param blockSize: number of columns in ``x`` and ``y``.
+      :param primme: parameters structure.
+      :param ierr: output error code; if it is set to non-zero, the current call to PRIMME will stop.
+
+      The actual type of ``x`` and ``y`` matches the type of ``evecs`` of the
+      calling  :c:func:`dprimme` (or a variant), unless |applyPreconditioner_type| sets
+      another precision.
 
       Input/output:
 
@@ -198,9 +209,11 @@ primme_params
       :param primme: parameters structure.
       :param ierr: output error code; if it is set to non-zero, the current call to PRIMME will stop.
 
-      The actual type of ``sendBuf`` and ``recvBuf`` depends on which function is being calling. For :c:func:`dprimme`
-      and :c:func:`zprimme` it is ``double``, and for :c:func:`sprimme` and  :c:func:`cprimme` it is ``float``.
-      Note that ``count`` is the number of values of the actual type.
+      The actual type of ``sendBuf`` and ``recvBuf`` matches the type of ``evecs`` of the
+      calling  :c:func:`dprimme` (or a variant), unless |globalSumReal_type| sets
+      another precision.
+
+      Note that ``count`` is the number of values of the real type.
  
       Input/output:
 
@@ -215,15 +228,12 @@ primme_params
          void par_GlobalSumForDouble(void *sendBuf, void *recvBuf, int *count, 
                                   primme_params *primme, int *ierr) {
             MPI_Comm communicator = *(MPI_Comm *) primme->commInfo;
-            if(MPI_Allreduce(sendBuf, recvBuf, *count, MPI_DOUBLE, MPI_SUM,
-                          communicator) == MPI_SUCCESS) {
-               *ierr = 0;
+            if (sendBuf == recvBuf) {
+              *ierr = MPI_Allreduce(MPI_IN_PLACE, recvBuf, *count, MPIU_REAL, MPI_SUM, communicator) != MPI_SUCCESS;
             } else {
-               *ierr = 1;
+              *ierr = MPI_Allreduce(sendBuf, recvBuf, *count, MPIU_REAL, MPI_SUM, communicator) != MPI_SUCCESS;
             }
          }
-
-      }
 
       When calling :c:func:`sprimme` and :c:func:`cprimme` replace ``MPI_DOUBLE`` by ```MPI_FLOAT``.
 
@@ -246,17 +256,17 @@ primme_params
 
    .. c:member:: void (*broadcastReal)(void *buffer, int *count, primme_params *primme, int *ierr)
 
-      Broadcast function from process with ID zero. It is optional in parallel executions, and no need for sequential programs.
+      Broadcast function from process with ID zero. It is optional in parallel executions, and not needed for sequential programs.
 
       :param buffer: array of size ``count`` with the local input values.
       :param count: array size of ``sendBuf`` and ``recvBuf``.
       :param primme: parameters structure.
       :param ierr: output error code; if it is set to non-zero, the current call to PRIMME will stop.
 
-      The actual type of ``buffer`` depends on which function is being calling. For :c:func:`dprimme`
-      and :c:func:`zprimme` it is ``double``, and for :c:func:`sprimme` and  :c:func:`cprimme` it is ``float``.
-      Note that ``count`` is the number of values of the actual type.
- 
+      The actual type of ``buffer`` matches the type of ``evecs`` of the
+      calling  :c:func:`dprimme` (or a variant), unless |globalSumReal_type| sets
+      another precision.
+
       Input/output:
 
          | :c:func:`primme_initialize` sets this field to NULL;
@@ -518,11 +528,11 @@ primme_params
       deviation of the orthogonality level is taken into account in the Galerkin
       method.
       
-      The option ``primme_orth_implicit_I`` is usually more expensive in FLOPS,
-      but it may be faster in time than ``primme_orth_explicit_I`` when |maxBlockSize|
+      The option ``primme_orth_explicit_I`` is usually more expensive in FLOPS,
+      but it may be faster in time than ``primme_orth_implicit_I`` when |maxBlockSize|
       is large.
 
-      ``primme_orth_explicit_I`` is set by default is the precision is larger than
+      ``primme_orth_explicit_I`` is set by default if the precision is larger than
       single precision and |maxBlockSize| is 1. Otherwise, ``primme_orth_explicit_I``
       is set by default.
 
@@ -1153,6 +1163,36 @@ primme_params
          | :c:func:`primme_initialize` sets this field to 0;
          | written by :c:func:`dprimme`.
 
+   .. c:member:: PRIMME_INT stats.numBroadcast
+
+      Hold how many times |broadcastReal| has been called.
+      The value is available during execution and at the end.
+
+      Input/output:
+
+         | :c:func:`primme_initialize` sets this field to 0;
+         | written by :c:func:`dprimme`.
+
+   .. c:member:: double stats.volumeBroadcast
+
+      Hold how many :c:type:`REAL` have been broadcast by |broadcastReal|.
+      The value is available during execution and at the end.
+
+      Input/output:
+
+         | :c:func:`primme_initialize` sets this field to 0;
+         | written by :c:func:`dprimme`.
+
+   .. c:member:: PRIMME_INT stats.numOrthoInnerProds
+
+      Hold how many inner products with vectors of length |nLocal| have been computed during orthogonalization.
+      The value is available during execution and at the end.
+
+      Input/output:
+
+         | :c:func:`primme_initialize` sets this field to 0;
+         | written by :c:func:`dprimme`.
+
    .. c:member:: double stats.elapsedTime
 
       Hold the wall clock time spent by the call to :c:func:`dprimme` or :c:func:`zprimme`.
@@ -1203,6 +1243,16 @@ primme_params
          | :c:func:`primme_initialize` sets this field to 0;
          | written by :c:func:`dprimme`.
 
+   .. c:member:: double stats.timeBroadcast
+
+      Hold the wall clock time spent by |broadcastReal|.
+      The value is available at the end of the execution.
+
+      Input/output:
+
+         | :c:func:`primme_initialize` sets this field to 0;
+         | written by :c:func:`dprimme`.
+
    .. c:member:: double stats.estimateMinEVal
 
       Hold the estimation of the smallest eigenvalue for the current eigenproblem.
@@ -1238,6 +1288,16 @@ primme_params
 
       Hold the maximum residual norm of the converged eigenvectors.
       The value is available during execution and at the end.
+
+      Input/output:
+
+         | :c:func:`primme_initialize` sets this field to 0;
+         | written by :c:func:`dprimme`.
+
+   .. c:member:: PRIMME_INT stats.lockingIssue
+
+      It is set to a nonzero value if some of the returned eigenpairs do not pass the convergence criterion.
+      See |convTestFun| and |eps|.
 
       Input/output:
 
@@ -1446,7 +1506,6 @@ Preset Methods
          * |maxBasisSize| = |numEvals| \* 2;
          * |minRestartSize| = |numEvals|;
          * |maxBlockSize| = |numEvals|;
-         * |scheme|  = |primme_thick|;
          * |maxPrevRetain|      = 0;
          * |robustShifts|       = 0;
          * |maxInnerIterations| = 0;
@@ -1465,7 +1524,6 @@ Preset Methods
          * |maxBasisSize| = |numEvals| \* 3;
          * |minRestartSize| = |numEvals|;
          * |maxBlockSize| = |numEvals|;
-         * |scheme|  = |primme_thick|;
          * |maxPrevRetain|      = |numEvals|;
          * |robustShifts|       = 0;
          * |maxInnerIterations| = 0;
@@ -1483,7 +1541,6 @@ Preset Methods
          * |locking|    = 0;
          * |maxBasisSize| = |maxBlockSize| \* 3;
          * |minRestartSize| = |maxBlockSize|;
-         * |scheme|  = |primme_thick|;
          * |maxPrevRetain|      = |maxBlockSize|;
          * |robustShifts|       = 0;
          * |maxInnerIterations| = 0;
@@ -1525,7 +1582,7 @@ The functions :c:func:`dprimme` and :c:func:`zprimme` return one of the next val
 * -18: if |minRestartSize| < 0 or |minRestartSize| shouldn't be zero.
 * -19: if |maxBlockSize| < 0 or |maxBlockSize| shouldn't be zero.
 * -20: if |maxPrevRetain| < 0.
-* -21: if |scheme| is not one of `primme_thick` or `primme_dtr`.
+* -21: deprecated
 * -22: if |initSize| < 0.
 * -23: if |locking| == 0 and |initSize| > |maxBasisSize|.
 * -24: if |locking| and |initSize| > |numEvals|.
@@ -1542,8 +1599,8 @@ The functions :c:func:`dprimme` and :c:func:`zprimme` return one of the next val
 * -33: if |locking| == 0 and |minRestartSize| < |numEvals|.
 * -34: if |ldevecs| < |nLocal|.
 * -35: if |ldOPs| is not zero and less than |nLocal|.
-* -36: not enough memory for |realWork|.
-* -37: not enough memory for |intWork|.
+* -36: deprecated.
+* -37: deprecated.
 * -38: if |locking| == 0 and |target| is |primme_closest_leq| or |primme_closest_geq|.
 
 

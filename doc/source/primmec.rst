@@ -322,8 +322,8 @@ Interface Description
 
 The next enumerations and functions are declared in ``primme.h``.
 
-hprimme, hsprimme, kprimme, ksprimme, sprimme, cprimme, dprimme, zprimme
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+?primme
+"""""""
 
 .. c:function:: int hprimme(PRIMME_HALF *evals, PRIMME_HALF *evecs, PRIMME_HALF *resNorms, primme_params *primme)
 .. c:function:: int hsprimme(float *evals, PRIMME_HALF *evecs, float *resNorms, primme_params *primme)
@@ -360,8 +360,8 @@ hprimme, hsprimme, kprimme, ksprimme, sprimme, cprimme, dprimme, zprimme
  
    The type and precision of the callbacks depends on the type and precision of `evecs`. See details for |matrixMatvec|, |massMatrixMatvec|, |applyPreconditioner|, |globalSumReal|, |broadcastReal|, and |convTestFun|.
 
-magma_hprimme, magma_hsprimme, magma_kprimme, magma_ksprimme, magma_sprimme, magma_cprimme, magma_dprimme, magma_zprimme
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+`magma_?primme`
+"""""""""""""""
 
 .. c:function:: int magma_hprimme(PRIMME_HALF *evals, PRIMME_HALF *evecs, PRIMME_HALF *resNorms, primme_params *primme)
 .. c:function:: int magma_hsprimme(float *evals, PRIMME_HALF *evecs, float *resNorms, primme_params *primme)
@@ -398,8 +398,8 @@ magma_hprimme, magma_hsprimme, magma_kprimme, magma_ksprimme, magma_sprimme, mag
  
    The type and precision of the callbacks depends on the type and precision of `evecs`. See details for |matrixMatvec|, |massMatrixMatvec|, |applyPreconditioner|, |globalSumReal|, |broadcastReal|, and |convTestFun|.
 
-kprimme_normal, kcprimme_normal, cprimme_normal, zprimme_normal
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+?primme_normal
+""""""""""""""
 
 .. c:function:: int kprimme_normal(PRIMME_COMPLEX_HALF *evals, PRIMME_COMPLEX_HALF *evecs, PRIMME_HALF *resNorms, primme_params *primme)
 .. c:function:: int kcprimme_normal(PRIMME_COMPLEX_FLOAT *evals, PRIMME_COMPLEX_HALF *evecs, float *resNorms, primme_params *primme)
@@ -432,8 +432,8 @@ kprimme_normal, kcprimme_normal, cprimme_normal, zprimme_normal
  
    The type and precision of the callbacks depends on the type and precision of `evecs`. See details for |matrixMatvec|, |massMatrixMatvec|, |applyPreconditioner|, |globalSumReal|, |broadcastReal|, and |convTestFun|.
 
-magma_kprimme_normal, magma_kcprimme_normal, magma_cprimme_normal, magma_zprimme_normal
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+`magma_?primme_normal`
+""""""""""""""""""""""
 
 .. c:function:: int magma_kprimme_normal(PRIMME_COMPLEX_HALF *evals, PRIMME_COMPLEX_HALF *evecs, PRIMME_HALF *resNorms, primme_params *primme)
 .. c:function:: int magma_kcprimme_normal(PRIMME_COMPLEX_FLOAT *evals, PRIMME_COMPLEX_HALF *evecs, float *resNorms, primme_params *primme)

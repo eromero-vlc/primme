@@ -74,7 +74,7 @@ sprimme_f77
       computed eigenvalues; all parallel calls return the same value in this array.
    :type evals(*): real
 
-   :param evecs(*): (input/output) array at least of size |nLocal| times |numEvals|
+   :param evecs(*): (input/output) array at least of size |nLocal| times (|numOrthoConst| + |numEvals|)
       to store columnwise the (local part of the) computed eigenvectors.
    :type evecs(*): real
 
@@ -108,7 +108,7 @@ cprimme_f77
       computed eigenvalues; all parallel calls return the same value in this array.
    :type evals(*): real
 
-   :param evecs(*): (input/output) array at least of size |nLocal| times |numEvals|
+   :param evecs(*): (input/output) array at least of size |nLocal| times (|numOrthoConst| + |numEvals|)
       to store columnwise the (local part of the) computed eigenvectors.
    :type evecs(*): complex real
 
@@ -141,7 +141,7 @@ dprimme_f77
       computed eigenvalues; all parallel calls return the same value in this array.
    :type evals(*): double precision
 
-   :param evecs(*): (input/output) array at least of size |nLocal| times |numEvals|
+   :param evecs(*): (input/output) array at least of size |nLocal| times (|numOrthoConst| + |numEvals|)
       to store columnwise the (local part of the) computed eigenvectors.
    :type evecs(*): double precision
 
@@ -175,7 +175,7 @@ zprimme_f77
       computed eigenvalues; all parallel calls return the same value in this array.
    :type evals(*): double precision
 
-   :param evecs(*): (input/output) array at least of size |nLocal| times |numEvals|
+   :param evecs(*): (input/output) array at least of size |nLocal| times (|numOrthoConst| + |numEvals|)
       to store columnwise the (local part of the) computed eigenvectors.
    :type evecs(*): complex double precision
 
@@ -198,7 +198,7 @@ zprimme_f77
 magma_sprimme_f77
 """""""""""""""""
 
-.. c:function:: sprimme_f77(evals, evecs, resNorms, primme, ierr)
+.. c:function:: magma_sprimme_f77(evals, evecs, resNorms, primme, ierr)
 
    Solve a real symmetric standard eigenproblem using single precision.
 
@@ -208,7 +208,7 @@ magma_sprimme_f77
       computed eigenvalues; all parallel calls return the same value in this array.
    :type evals(*): real
 
-   :param evecs(*): (input/output) GPU array at least of size |nLocal| times |numEvals|
+   :param evecs(*): (input/output) GPU array at least of size |nLocal| times (|numOrthoConst| + |numEvals|)
       to store columnwise the (local part of the) computed eigenvectors.
    :type evecs(*): real
 
@@ -231,7 +231,7 @@ magma_sprimme_f77
 magma_cprimme_f77
 """""""""""""""""
 
-.. c:function:: cprimme_f77(evals, evecs, resNorms, primme, ierr)
+.. c:function:: magma_cprimme_f77(evals, evecs, resNorms, primme, ierr)
 
    Solve a Hermitian standard eigenproblem. The arguments have the
    same meaning as in function :c:func:`sprimme_f77`.
@@ -242,7 +242,7 @@ magma_cprimme_f77
       computed eigenvalues; all parallel calls return the same value in this array.
    :type evals(*): real
 
-   :param evecs(*): (input/output) GPU array at least of size |nLocal| times |numEvals|
+   :param evecs(*): (input/output) GPU array at least of size |nLocal| times (|numOrthoConst| + |numEvals|)
       to store columnwise the (local part of the) computed eigenvectors.
    :type evecs(*): complex real
 
@@ -265,7 +265,7 @@ magma_cprimme_f77
 magma_dprimme_f77
 """""""""""""""""
 
-.. c:function:: dprimme_f77(evals, evecs, resNorms, primme, ierr)
+.. c:function:: magma_dprimme_f77(evals, evecs, resNorms, primme, ierr)
 
    Solve a real symmetric standard eigenproblem using double precision.
 
@@ -275,7 +275,7 @@ magma_dprimme_f77
       computed eigenvalues; all parallel calls return the same value in this array.
    :type evals(*): double precision
 
-   :param evecs(*): (input/output) GPU array at least of size |nLocal| times |numEvals|
+   :param evecs(*): (input/output) GPU array at least of size |nLocal| times (|numOrthoConst| + |numEvals|)
       to store columnwise the (local part of the) computed eigenvectors.
    :type evecs(*): double precision
 
@@ -298,7 +298,7 @@ magma_dprimme_f77
 magma_zprimme_f77
 """""""""""""""""
 
-.. c:function:: zprimme_f77(evals, evecs, resNorms, primme, ierr)
+.. c:function:: magma_zprimme_f77(evals, evecs, resNorms, primme, ierr)
 
    Solve a Hermitian standard eigenproblem. The arguments have the
    same meaning as in function :c:func:`dprimme_f77`.
@@ -309,7 +309,7 @@ magma_zprimme_f77
       computed eigenvalues; all parallel calls return the same value in this array.
    :type evals(*): double precision
 
-   :param evecs(*): (input/output) GPU array at least of size |nLocal| times |numEvals|
+   :param evecs(*): (input/output) GPU array at least of size |nLocal| times (|numOrthoConst| + |numEvals|)
       to store columnwise the (local part of the) computed eigenvectors.
    :type evecs(*): complex double precision
 
@@ -330,9 +330,6 @@ magma_zprimme_f77
    The type and precision of the callbacks depends on the type and precision of `evecs`. See details for |matrixMatvec|, |massMatrixMatvec|, |applyPreconditioner|, |globalSumReal|, |broadcastReal|, and |convTestFun|.
 
 
-
-
-
 cprimme_normal_f77
 """"""""""""""""""
 
@@ -346,7 +343,7 @@ cprimme_normal_f77
       computed eigenvalues; all parallel calls return the same value in this array.
    :type evals(*): real
 
-   :param evecs(*): (input/output) array at least of size |nLocal| times |numEvals|
+   :param evecs(*): (input/output) array at least of size |nLocal| times (|numOrthoConst| + |numEvals|)
       to store columnwise the (local part of the) computed eigenvectors.
    :type evecs(*): complex real
 
@@ -379,7 +376,7 @@ zprimme_normal_f77
       computed eigenvalues; all parallel calls return the same value in this array.
    :type evals(*): double precision
 
-   :param evecs(*): (input/output) array at least of size |nLocal| times |numEvals|
+   :param evecs(*): (input/output) array at least of size |nLocal| times (|numOrthoConst| + |numEvals|)
       to store columnwise the (local part of the) computed eigenvectors.
    :type evecs(*): complex double precision
 
@@ -402,7 +399,7 @@ zprimme_normal_f77
 magma_cprimme_normal_f77
 """"""""""""""""""""""""
 
-.. c:function:: cprimme_normal_f77(evals, evecs, resNorms, primme, ierr)
+.. c:function:: magma_cprimme_normal_f77(evals, evecs, resNorms, primme, ierr)
 
    Solve a normal standard eigenproblem, which may not be Hermitian.
 
@@ -412,7 +409,7 @@ magma_cprimme_normal_f77
       computed eigenvalues; all parallel calls return the same value in this array.
    :type evals(*): real
 
-   :param evecs(*): (input/output) GPU array at least of size |nLocal| times |numEvals|
+   :param evecs(*): (input/output) GPU array at least of size |nLocal| times (|numOrthoConst| + |numEvals|)
       to store columnwise the (local part of the) computed eigenvectors.
    :type evecs(*): complex real
 
@@ -435,7 +432,7 @@ magma_cprimme_normal_f77
 magma_zprimme_normal_f77
 """"""""""""""""""""""""
 
-.. c:function:: zprimme_normal_f77(evals, evecs, resNorms, primme, ierr)
+.. c:function:: magma_zprimme_normal_f77(evals, evecs, resNorms, primme, ierr)
 
    Solve a normal standard eigenproblem, which may not be Hermitian.
 
@@ -445,7 +442,7 @@ magma_zprimme_normal_f77
       computed eigenvalues; all parallel calls return the same value in this array.
    :type evals(*): double precision
 
-   :param evecs(*): (input/output) GPU array at least of size |nLocal| times |numEvals|
+   :param evecs(*): (input/output) GPU array at least of size |nLocal| times (|numOrthoConst| + |numEvals|)
       to store columnwise the (local part of the) computed eigenvectors.
    :type evecs(*): complex double precision
 
@@ -515,7 +512,6 @@ primme_set_member_f77
       | :c:member:`PRIMME_matrix                              <primme_params.matrix>`
       | :c:member:`PRIMME_massMatrix                          <primme_params.massMatrix>`
       | :c:member:`PRIMME_preconditioner                      <primme_params.preconditioner>`
-
       | :c:member:`PRIMME_initBasisMode                       <primme_params.initBasisMode>`
       | :c:member:`PRIMME_projectionParams_projection         <primme_params.projectionParams_projection>`
       | :c:member:`PRIMME_restartingParams_maxPrevRetain      <primme_params.restartingParams.maxPrevRetain>`

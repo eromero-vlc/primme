@@ -92,13 +92,13 @@ xprimme
    :param real(kind) evals(*) [out]: array at least of size |numEvals| to store the
       computed eigenvalues; all processes in a parallel run return this local array with the same values.
 
+   :param evecs: array at least of size |nLocal| times (|numOrthoConst| + |numEvals|)
+      to store columnwise the (local part of the) computed eigenvectors.
+   :rtype: real(kind) or complex(kind)
+
    :param real(kind) resNorms(*) [out]: array at least of size |numEvals| to store the
       residual norms of the computed eigenpairs; all processes in parallel run return this local array with
       the same values.
-
-   :param evecs: array at least of size |nLocal| times |numEvals|
-      to store columnwise the (local part of the) computed eigenvectors.
-   :rtype: real(kind) or complex(kind)
 
    :param c_ptr primme [in]: parameters structure created by :f:func:`primme_params_create`.
 
@@ -126,13 +126,13 @@ magma_xprimme
    :param real(kind) evals(*) [out]: array at least of size |numEvals| to store the
       computed eigenvalues; all processes in a parallel run return this local array with the same values.
 
+   :param evecs: array at least of size |nLocal| times (|numOrthoConst| + |numEvals|)
+      to store columnwise the (local part of the) computed eigenvectors.
+   :rtype: real(kind) or complex(kind)
+
    :param real(kind) resNorms(*) [out]: array at least of size |numEvals| to store the
       residual norms of the computed eigenpairs; all processes in parallel run return this local array with
       the same values.
-
-   :param evecs: array at least of size |nLocal| times |numEvals|
-      to store columnwise the (local part of the) computed eigenvectors.
-   :rtype: real(kind) or complex(kind)
 
    :param c_ptr primme [in]: parameters structure created by :f:func:`primme_params_create`.
 
@@ -294,9 +294,9 @@ primme_get_member
 
    :param value [out]: value of the field.  The allowed types are `c_int64`, `c_double`, and `c_ptr`.
 
-   :return c_int primme_sget_member: nonzero value if the call is not successful.
+   :return c_int primme_get_member: nonzero value if the call is not successful.
 
-    Examples::
+   Examples::
 
         type(c_ptr) :: primme
         integer :: ierr

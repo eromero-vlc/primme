@@ -326,22 +326,21 @@ The next enumerations and functions are declared in ``primme.h``.
    :param svals: array at least of size |SnumSvals| to store the
       computed singular values; all processes in a parallel run return this local array with the same values.
 
+   :param svecs: array at least of size (|SmLocal| + |SnLocal|) times (|SnumOrthoConst| + |SnumSvals|)
+      to store columnwise the (local part of the) computed left singular vectors
+      and the right singular vectors.
+
    :param resNorms: array at least of size |SnumSvals| to store the
       residual norms of the computed triplets; all processes in parallel run return this local array with
       the same values.
-
-   :param svecs: array at least of size (|SmLocal| + |SnLocal|) times |SnumSvals|
-      to store columnwise the (local part of the) computed left singular vectors
-      and the right singular vectors.
 
    :param primme_svds: parameters structure.
 
    :return: error indicator; see :ref:`error-codes-svds`.
 
    On input, ``svecs`` should start with the content of the |SnumOrthoConst| left vectors,
-   followed by the |SinitSize| left vectors, followed by the |SnumOrthoConst| right vectors and
-   followed by the |SinitSize| right vectors. The i-th left vector starts at svecs[i\* |SmLocal| ].
-   The i-th right vector starts at svecs[( |SnumOrthoConst| + |SinitSize| )\* |SmLocal| + i\* |SnLocal| ].
+   followed by the |SinitSize| left vectors, followed by the |SnumOrthoConst| right vectors, and
+   followed by the |SinitSize| right vectors.
  
    On return, the i-th left singular vector starts at svecs[( |SnumOrthoConst| +i)\* |SmLocal| ].
    The i-th right singular vector starts at svecs[( |SnumOrthoConst| + |SinitSize| )\* |SmLocal| + ( |SnumOrthoConst| +i)\* |SnLocal| ].
@@ -362,28 +361,27 @@ The next enumerations and functions are declared in ``primme.h``.
 
    Solve a real singular value problem.
 
-   Most of the arrays are stored on GPU, and also most of the computations are done on GPU (see :c:func:`magma_dprimme` for using only the CPU).
+   Most of the arrays are stored on GPU, and also most of the computations are done on GPU (see :c:func:`dprimme` for using only the CPU).
 
-   :param svals: array at least of size |SnumSvals| to store the
+   :param svals: CPU array at least of size |SnumSvals| to store the
       computed singular values; all processes in a parallel run return this local array with the same values.
 
-   :param resNorms: array at least of size |SnumSvals| to store the
-      residual norms of the computed triplets; all processes in parallel run return this local array with
-      the same values.
-
-   :param svecs: array at least of size (|SmLocal| + |SnLocal|) times |SnumSvals|
+   :param svecs: GPU array at least of size (|SmLocal| + |SnLocal|) times (|SnumOrthoConst| + |SnumSvals|)
       to store columnwise the (local part of the) computed left singular vectors
       and the right singular vectors.
+
+   :param resNorms: CPU array at least of size |SnumSvals| to store the
+      residual norms of the computed triplets; all processes in parallel run return this local array with
+      the same values.
 
    :param primme_svds: parameters structure.
 
    :return: error indicator; see :ref:`error-codes-svds`.
 
    On input, ``svecs`` should start with the content of the |SnumOrthoConst| left vectors,
-   followed by the |SinitSize| left vectors, followed by the |SnumOrthoConst| right vectors and
-   followed by the |SinitSize| right vectors. The i-th left vector starts at svecs[i\* |SmLocal| ].
-   The i-th right vector starts at svecs[( |SnumOrthoConst| + |SinitSize| )\* |SmLocal| + i\* |SnLocal| ].
- 
+   followed by the |SinitSize| left vectors, followed by the |SnumOrthoConst| right vectors, and
+   followed by the |SinitSize| right vectors.
+
    On return, the i-th left singular vector starts at svecs[( |SnumOrthoConst| +i)\* |SmLocal| ].
    The i-th right singular vector starts at svecs[( |SnumOrthoConst| + |SinitSize| )\* |SmLocal| + ( |SnumOrthoConst| +i)\* |SnLocal| ].
    The first vector has i=0.
