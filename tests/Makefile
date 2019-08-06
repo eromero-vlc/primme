@@ -65,16 +65,16 @@ OBJSdouble = $(sort $(SOBJSdouble)) $(patsubst %.o,%double.o,$(OBJS))
 OBJSdoublecomplex = $(sort $(SOBJSdoublecomplex)) $(patsubst %.o,%doublecomplex.o,$(OBJS))
 
 primme_double: $(OBJSdouble) driverdouble.o
-	$(CLDR) -o primme_double $(OBJSdouble) driverdouble.o $(LIBDIRS) $(INCLUDE) $(LIBS) $(LDFLAGS) 
+	$(CLDR) -o primme_double $(OBJSdouble) driverdouble.o $(LDFLAGS) $(LIBDIRS) $(INCLUDE) $(LIBS)
 
 primme_doublecomplex: $(OBJSdoublecomplex) driverdoublecomplex.o
-	$(CLDR) -o primme_doublecomplex $(OBJSdoublecomplex) driverdoublecomplex.o $(LIBDIRS) $(INCLUDE) $(LIBS) $(LDFLAGS) 
+	$(CLDR) -o primme_doublecomplex $(OBJSdoublecomplex) driverdoublecomplex.o $(LDFLAGS) $(LIBDIRS) $(INCLUDE) $(LIBS)
 
 primmesvds_double: $(OBJSdouble) driversvdsdouble.o
-	$(CLDR) -o primmesvds_double $(OBJSdouble) driversvdsdouble.o $(LIBDIRS) $(INCLUDE) $(LIBS) $(LDFLAGS) 
+	$(CLDR) -o primmesvds_double $(OBJSdouble) driversvdsdouble.o $(LDFLAGS) $(LIBDIRS) $(INCLUDE) $(LIBS)
 
 primmesvds_doublecomplex: $(OBJSdoublecomplex) driversvdsdoublecomplex.o
-	$(CLDR) -o primmesvds_doublecomplex $(OBJSdoublecomplex) driversvdsdoublecomplex.o $(LIBDIRS) $(INCLUDE) $(LIBS) $(LDFLAGS) 
+	$(CLDR) -o primmesvds_doublecomplex $(OBJSdoublecomplex) driversvdsdoublecomplex.o $(LDFLAGS) $(LIBDIRS) $(INCLUDE) $(LIBS)
 
 %double.o: %.c
 	$(CC) $(CFLAGS) $(DEFINES) -DUSE_DOUBLE $(INCLUDE) -c $< -o $@
@@ -162,7 +162,7 @@ tests_primme_interface: $(patsubst %,laplace%.mtx,$(T_sizes))
 		primme_closest_geq-7-7-*) continue ;; \
 		primme_closest_[gl]eq-100-*-LOBPCG*) continue ;; \
 	esac; \
-	for proj in primme_proj_RR primme_proj_refined ; do \
+	for proj in primme_proj_RR primme_proj_refined_harmonic ; do \
 		case "$$target-$$proj-$$method" in \
 			primme_closest*-primme_proj_RR-LOBPCG*) continue ;; \
 			primme_closest*-STEEPEST_DESCENT*) continue ;; \

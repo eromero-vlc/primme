@@ -99,7 +99,7 @@ int main (int argc, char *argv[]) {
    primme_svds.n = (PRIMME_INT)n; /* set problem dimension */
    primme_svds.numSvals = 4;   /* Number of wanted singular values */
    primme_svds.eps = 1e-6;     /* ||r|| <= eps * ||matrix|| */
-   primme_svds.target = primme_svds_smallest;
+   primme_svds.target = primme_svds_largest;
                                /* Seeking for the largest singular values  */
 
    /* Set preconditioner (optional) */

@@ -1369,7 +1369,7 @@ static void mexFunction_primme_svds_get_member(int nlhs, mxArray *plhs[],
             plhs[0] = create_mxArray(&v, 1, 1, 1);
          }
 
-         // Set members with type double
+         // Get members with type double
 
          else if (ptype == primme_double) {
             double v;
@@ -1677,6 +1677,9 @@ static void mexFunction_xprimme_svds(int nlhs, mxArray *plhs[], int nrhs,
 
    signal(SIGINT, prev_handler);
 #endif
+
+   // TEMP!!!!
+   primme_svds_display_params(*primme_svds);
 
    // Return error code
 

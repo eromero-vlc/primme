@@ -175,6 +175,8 @@ void primme_free(primme_params *primme) {
 
    free(primme->intWork);
    free(primme->realWork);
+   primme->intWork = NULL;
+   primme->realWork = NULL;
    primme->intWorkSize  = 0;
    primme->realWorkSize = 0;
 
@@ -415,9 +417,18 @@ int primme_set_method(primme_preset_method method, primme_params *primme) {
       primme->correctionParams.projectors.SkewX   = 0;
    }
    else if (method == PRIMME_LOBPCG_OrthoBasis) {
-      primme->maxBasisSize                        = primme->numEvals*3;
-      primme->minRestartSize                      = primme->numEvals;
-      primme->maxBlockSize                        = primme->numEvals;
+      /* if (primme->maxBlockSize == 1
+            && (primme->target == primme_closest_leq
+               || primme->target == primme_closest_geq)) {
+         primme->maxBasisSize                        = 4;
+         primme->minRestartSize                      = 1;
+         primme->restartingParams.maxPrevRetain      = 1;
+      }
+      else */{
+         primme->maxBasisSize                        = primme->numEvals*3;
+         primme->minRestartSize                      = primme->numEvals;
+         primme->maxBlockSize                        = primme->numEvals;
+      }
       primme->restartingParams.maxPrevRetain      = primme->numEvals;
       primme->restartingParams.scheme             = primme_thick;
       primme->correctionParams.robustShifts       = 0;
@@ -429,14 +440,14 @@ int primme_set_method(primme_preset_method method, primme_params *primme) {
       /* Observed needing to restart with two vectors at least to converge    */
       /* in some tests like for instance testi-10-LOBPCG_OrthoBasis_Window-3- */
       /* primme_closest_geq-primme_proj_refined.F                             */
-      if (primme->maxBlockSize == 1
+      /*if (primme->maxBlockSize == 1
             && (primme->target == primme_closest_leq
                || primme->target == primme_closest_geq)) {
          primme->maxBasisSize                        = 4;
-         primme->minRestartSize                      = 2;
+         primme->minRestartSize                      = 1;
          primme->restartingParams.maxPrevRetain      = 1;
       }
-      else {
+      else */{
          primme->maxBasisSize                        = primme->maxBlockSize*3;
          primme->minRestartSize                      = primme->maxBlockSize;
          primme->restartingParams.maxPrevRetain      = primme->maxBlockSize;
@@ -618,6 +629,8 @@ void primme_display_params_prefix(const char* prefix, primme_params primme) {
    PRINTParamsIF(projection, projection, primme_proj_RR);
    PRINTParamsIF(projection, projection, primme_proj_harmonic);
    PRINTParamsIF(projection, projection, primme_proj_refined);
+   PRINTParamsIF(projection, projection, primme_proj_refined_RR);
+   PRINTParamsIF(projection, projection, primme_proj_refined_harmonic);
 
    PRINTIF(initBasisMode, primme_init_default);
    PRINTIF(initBasisMode, primme_init_krylov);
@@ -1489,6 +1502,8 @@ int primme_constant_info(const char* label_name, int *value) {
    IF_IS(primme_proj_RR);
    IF_IS(primme_proj_harmonic);
    IF_IS(primme_proj_refined);
+   IF_IS(primme_proj_refined_RR);
+   IF_IS(primme_proj_refined_harmonic);
    IF_IS(primme_init_default);
    IF_IS(primme_init_krylov);
    IF_IS(primme_init_random);

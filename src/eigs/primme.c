@@ -321,19 +321,14 @@ static int allocate_workspace(primme_params *primme, int allocate) {
    /*----------------------------------------------------------------------*/
    /* Add memory for Harmonic or Refined projection                        */
    /*----------------------------------------------------------------------*/
-   if (primme->projectionParams.projection == primme_proj_harmonic ||
-         primme->projectionParams.projection == primme_proj_refined) {
+   if (primme->projectionParams.projection != primme_proj_RR) {
 
       dataSize += primme->ldOPs*primme->maxBasisSize     /* Size of Q      */
          + primme->maxBasisSize*primme->maxBasisSize     /* Size of R      */
          + primme->maxBasisSize*primme->maxBasisSize     /* Size of hU     */
-         + primme->maxBasisSize*primme->maxBasisSize;    /* Size of hVecsRot */
+         + primme->maxBasisSize*primme->maxBasisSize     /* Size of hVecsRot */
+         + primme->maxBasisSize*primme->maxBasisSize;    /* Size of QtV */
       doubleSize += primme->maxBasisSize;                /* Size of hSVals */
-   }
-   if (primme->projectionParams.projection == primme_proj_harmonic) {
-      /* Stored QtV = Q'*V */
-      dataSize +=
-            primme->maxBasisSize*primme->maxBasisSize;      /* Size of QtV */
    }
 
 
@@ -374,8 +369,8 @@ static int allocate_workspace(primme_params *primme, int allocate) {
    /*----------------------------------------------------------------------*/
 
    CHKERR(solve_H_Sprimme(NULL, primme->maxBasisSize, 0, VtBV, 0, NULL, 0, NULL,
-            0, NULL, 0, NULL, 0, NULL, NULL, 0, 0.0, &realWorkSize, NULL, 0,
-            &intWorkSize, primme), -1);
+                0, NULL, 0, NULL, 0, NULL, 0, NULL, NULL, 0, 0.0, &realWorkSize,
+                NULL, 0, &intWorkSize, primme), -1);
 
    /*----------------------------------------------------------------------*/
    /* Determine workspace required by solve_correction and its children    */
@@ -397,7 +392,7 @@ static int allocate_workspace(primme_params *primme, int allocate) {
             &primme->restartingParams.maxPrevRetain, primme->maxBasisSize,
             primme->initSize, NULL, &primme->maxBasisSize, NULL,
             primme->maxBasisSize, VtBV, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
-            0, NULL, 0, 0, NULL, NULL, NULL, NULL, 0, NULL, NULL, 0.0, NULL,
+            0, NULL, 0, 0, NULL, NULL, NULL, 0, NULL, NULL, 0.0, NULL,
             &realWorkSize, &intWorkSize, 0, primme), -1);
 
    /*----------------------------------------------------------------------*/
@@ -408,11 +403,11 @@ static int allocate_workspace(primme_params *primme, int allocate) {
             primme->maxBasisSize, NULL, &realWorkSize, 0, primme), -1);
 
    CHKERR(prepare_candidates_Sprimme(NULL, 0, NULL, 0, primme->nLocal, NULL, 0,
-            primme->maxBasisSize, NULL, NULL, NULL, 0, NULL, NULL, NULL,
-            primme->numEvals, NULL, 0, primme->maxBlockSize,
-            NULL, primme->numEvals, 0, NULL, NULL, 0, 0.0, NULL,
-            &primme->maxBlockSize, NULL, NULL, NULL, NULL, 0, 0, NULL, NULL,
-            NULL, &realWorkSize, &intWorkSize, 0, primme), -1);
+                primme->maxBasisSize, NULL, NULL, NULL, 0, NULL, NULL, NULL,
+                primme->numEvals, NULL, 0, primme->maxBlockSize, NULL,
+                primme->numEvals, 0, NULL, NULL, 0, 0.0, NULL,
+                &primme->maxBlockSize, NULL, 0, NULL, NULL, NULL, &realWorkSize,
+                &intWorkSize, 0, primme), -1);
 
    CHKERR(retain_previous_coefficients_Sprimme(NULL, 0, NULL, 0, NULL, 0,
             0, 0, NULL, primme->maxBlockSize, NULL,
@@ -591,7 +586,7 @@ static int check_input(REAL *evals, SCALAR *evecs, REAL *resNorms,
    /* Booked -36 and -37 */
    else if (primme->locking == 0
          && (primme->target == primme_closest_leq
-            || primme->target == primme_closest_geq))
+            || primme->target == primme_closest_geq) && primme->projectionParams.projection == primme_proj_RR)
       ret = -38;
    else if (primme->orth == primme_orth_explicit_I
          && primme->projectionParams.projection != primme_proj_RR)

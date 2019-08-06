@@ -160,6 +160,8 @@ int inner_solve_Sprimme(SCALAR *x, SCALAR *r, REAL *rnorm, SCALAR *evecs,
       REAL eval, REAL shift, int *touch, double machEps, SCALAR *rwork,
       size_t rworkSize, primme_params *primme) {
 
+   //const EXPERIMENTAL_STOP = shift == primme->targetShifts[0];
+   const EXPERIMENTAL_STOP = 0;
    int i;             /* loop variable                                       */
    int numIts;        /* Number of inner iterations                          */
    int maxIterations; /* The maximum # iterations allowed. Depends on primme */
@@ -374,9 +376,10 @@ int inner_solve_Sprimme(SCALAR *x, SCALAR *r, REAL *rnorm, SCALAR *evecs,
          
          CHKERR(dist_dot_real(sol, 1, sol, 1, primme, &dot_sol), -1);
          eval_updated = shift + (eval - shift + 2*Beta + Gamma)/(1.0 + dot_sol);
+         REAL eval_updated_m_shift = (eval - shift + 2*Beta + Gamma)/(1.0 + dot_sol);
          eres2_updated = (tau*tau)/(1 + dot_sol) + 
             ((eval - shift + Beta)*(eval - shift + Beta))/(1.0 + dot_sol) - 
-            (eval_updated - shift)*(eval_updated - shift);
+            (eval_updated_m_shift)*(eval_updated_m_shift);
 
          /* If numerical problems, let eres about the same as tau */
          eres_prev = eres_updated;
@@ -394,7 +397,7 @@ int inner_solve_Sprimme(SCALAR *x, SCALAR *r, REAL *rnorm, SCALAR *evecs,
          /* Stopping criteria                                       */
          /* --------------------------------------------------------*/
 
-         if (numIts > 1 && (tau_prev <= eres_updated || eres_prev <= tau)) {
+         if (!EXPERIMENTAL_STOP && numIts > 1 && (tau_prev <= eres_updated || eres_prev <= tau)) {
             if (primme->printLevel >= 5 && primme->procID == 0) {
                fprintf(primme->outputFile, " tau < R eres \n");
             }
@@ -437,6 +440,12 @@ int inner_solve_Sprimme(SCALAR *x, SCALAR *r, REAL *rnorm, SCALAR *evecs,
          /* max(tau/LTolerance_factor, eres_updated/ETolerance_factor).       */
 
          double tol = min(tau/LTolerance_factor, eres_updated/ETolerance_factor);
+         if (EXPERIMENTAL_STOP) {
+            // fprintf(primme->outputFile, "CACA %g\n", fabs((1.0 - Beta)/(eval - shift)));
+            // tol = min(tau*fabs((1.0 - Beta)/(eval - shift)), tol);
+            fprintf(primme->outputFile, "CACA %g\n", fabs(eval - primme->targetShifts[0])/((eval - primme->targetShifts[0])*(eval - primme->targetShifts[0]) + tau_init*tau_init));
+            tol = min(tol, tau*fabs(eval - primme->targetShifts[0])/((eval - primme->targetShifts[0])*(eval - primme->targetShifts[0]) + tau_init*tau_init));
+         }
          CHKERR(convTestFun_Sprimme(eval_updated, NULL, tol, &isConv, primme),
                -1);
 

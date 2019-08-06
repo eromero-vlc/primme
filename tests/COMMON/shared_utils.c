@@ -153,6 +153,8 @@ int read_solver_params(char *configFileName, char *outputFileName,
             OPTIONParams(projection, projection, primme_proj_RR)
             OPTIONParams(projection, projection, primme_proj_refined)
             OPTIONParams(projection, projection, primme_proj_harmonic)
+            OPTIONParams(projection, projection, primme_proj_refined_RR)
+            OPTIONParams(projection, projection, primme_proj_refined_harmonic)
          );
 
          READ_FIELD_OP(initBasisMode,
@@ -830,10 +832,20 @@ void par_GlobalSumDouble(void *sendBuf, void *recvBuf, int *count,
 #ifdef USE_PETSC
    extern PetscLogEvent PRIMME_GLOBAL_SUM;
    PetscLogEventBegin(PRIMME_GLOBAL_SUM,0,0,0,0);
-   *ierr = MPI_Allreduce(sendBuf, recvBuf, *count, MPI_DOUBLE, MPI_SUM, communicator);
+   if (sendBuf == recvBuf) {
+      *ierr = MPI_Allreduce(MPI_IN_PLACE, recvBuf, *count, MPI_DOUBLE, MPI_SUM, communicator) != MPI_SUCCESS;
+   }
+   else {
+      *ierr = MPI_Allreduce(sendBuf, recvBuf, *count, MPI_DOUBLE, MPI_SUM, communicator);
+   }
    PetscLogEventEnd(PRIMME_GLOBAL_SUM,0,0,0,0);
 #else
-   *ierr = MPI_Allreduce(sendBuf, recvBuf, *count, MPI_DOUBLE, MPI_SUM, communicator);
+   if (sendBuf == recvBuf) {
+      *ierr = MPI_Allreduce(MPI_IN_PLACE, recvBuf, *count, MPI_DOUBLE, MPI_SUM, communicator) != MPI_SUCCESS;
+   }
+   else {
+      *ierr = MPI_Allreduce(sendBuf, recvBuf, *count, MPI_DOUBLE, MPI_SUM, communicator);
+   }
 #endif
 }
 

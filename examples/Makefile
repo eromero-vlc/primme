@@ -22,7 +22,7 @@ ifeq ($(USE_PETSC), yes)
   override FINCLUDE += $(PETSC_FCPPFLAGS)
   LIBDIRS += $(PETSC_C_SH_LIB_PATH)
   LIBS += $(PETSC_LIB)
-  EXAMPLES_C += ex_eigs_petsc ex_svds_petsc
+  EXAMPLES_C += ex_eigs_petsc ex_svds_petsc svds_poc_petsc
   EXAMPLES_F77 += ex_eigs_petscf77 ex_eigs_petscf77ptr ex_svds_petscf77 ex_svds_petscf77ptr
   MPIRUN ?= mpirun -np 4
 endif

@@ -548,3 +548,36 @@ int compute_submatrix_Sprimme(SCALAR *X, int nX, int ldX,
 
    return 0;
 }
+
+/******************************************************************************
+ * Subroutine permute_vecs - This routine permutes a set of vectors according
+ *            to a permutation array perm.
+ *
+ * INPUT ARRAYS AND PARAMETERS
+ * ---------------------------
+ * m, n, ld    The number of rows and columns and the leading dimension of vecs
+ * perm        The permutation of the columns
+ * rwork       Temporary space of size the number of rows
+ * iwork       Temporary space of size the number of columns
+ *
+ * INPUT/OUTPUT ARRAYS
+ * -------------------
+ * vecs        The matrix whose columns will be reordered
+ *
+ ******************************************************************************/
+
+#ifndef USE_COMPLEX
+TEMPLATE_PLEASE
+void sort_vec_Sprimme(SCALAR *v, int n, int *perm) {
+   int i, j;
+   for (i=0; i<n; i++) perm[i] = i;
+   for (i=0; i<n-1; i++) {
+      SCALAR minval = v[perm[n-1]];
+      int minpos = n-1;
+      for (j=n-2; j>=i; j--)
+         if (v[perm[j]] <= minval) minval = v[perm[j]], minpos = j;
+      int a = perm[i]; perm[i] = perm[minpos]; perm[minpos] = a;
+   }
+   for (i=0; i<n-1; i++) assert(v[perm[i]] <= v[perm[i+1]]);
+}
+#endif

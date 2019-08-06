@@ -278,6 +278,12 @@ function [varargout] = primme_svds(varargin)
       Aclass = 'single';
    end
 
+   % Matlab/Octave doesn't support sparse single matrices
+   % FIXED: make y = single(A*double(x)), instead of y = A*x
+   if ~Adouble && issparse(A)
+      opts.matrixMatvec = @(x,mode)matvecsvds_single(A,x,mode);
+   end
+
    % Test whether the given matrix and preconditioner are valid
    try
       x = opts.matrixMatvec(ones(opts.n, 1, Aclass), 'notransp');
@@ -438,7 +444,7 @@ function [varargout] = primme_svds(varargin)
       primme_mex('primme_svds_set_member', primme_svds, 'monitorFun', ...
             @(a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11)record_history(a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11));
    end
-   if nargout >= 5
+   if nargout >= 6
       return_hist = 1;
    elseif dispLevel == 1
       fprintf('#MV\tTime\t\tNConv\tStage\n');
@@ -474,7 +480,12 @@ function [varargout] = primme_svds(varargin)
    elseif ierr ~= 0
       error([xprimme_svds ' returned ' num2str(ierr) ': ' primme_svds_error_msg(ierr)]);
    end
-   
+  
+   % Print primme_svds_parms
+   if isfield(opts, 'showstruct')
+      
+   end
+
    % Return smallest or interior singular triplets in descending order
    if strcmp(opts.target,'primme_svds_smallest') || strcmp(opts.target,'primme_svds_closest_abs')
       [svals,ind] = sort(svals,'descend');
@@ -578,6 +589,14 @@ function [y] = matvecsvds(A, x, mode)
       y = A*x;
    else
       y = A'*x;
+   end
+end
+
+function [y] = matvecsvds_single(A, x, mode)
+   if mode(1) == 'n'
+      y = single(A*double(x));
+   else
+      y = single(A'*double(x));
    end
 end
 
@@ -771,5 +790,37 @@ function s = primme_svds_error_msg(errorCode)
       s = ['Error from first stage: ' primme_error_msg(errorCode+100)];
    else
       s = ['Error from second stage: ' primme_error_msg(errorCode+200)];
+   end
+end
+
+function s = get_primme_svds_params(primme_svds)
+   s = struct();
+  
+   primme_svds_fields = {'m', 'n', 'numSvals', 'target', 'numTargetShifts', ...
+      'targetShifts', 'method', 'methodStage2', 'intWorkSize', 'realWorkSize', ...
+         'intWork', 'realWork', 'locking', 'numOrthoConst', 'aNorm', 'eps', ...
+         'precondition', 'initSize', 'maxBasisSize', 'maxBlockSize', ...
+         'maxMatvecs', 'iseed', 'printLevel'};
+   for i = 1:numel(primme_svds_fields)
+      s.(primme_svds_fields{i}) = primme_mex('primme_svds_get_member', ...
+            primme_svds, primme_svds_fields{i});
+   end
+
+   primme_svds_stats_fields = {'numOuterIterations', 'numRestarts', ...
+      'numMatvecs', 'numPreconds', 'numGlobalSum', 'volumeGlobalSum', ...
+         'numOrthoInnerProds', 'elapsedTime', 'timeMatvec', 'timePrecond', ...
+         'timeOrtho', 'timeGlobalSum'};
+
+   for i = 1:numel(primme_svds_stats_fields)
+      s.stats.(primme_svds_stats_fields{i}) = primme_mex(...
+            'primme_svds_get_member', primme_svds, ...
+            ['stats_' primme_svds_stats_fields{i}]);
+   end
+
+   primme_svds_primme_fields = {'primme', 'primmeStage2'};
+   for i = 1:numel(primme_svds_primme_fields)
+      s.(primme_svds_primme_fields{i}) = get_primme_params(...
+            primme_mex('primme_svds_get_member', primme_svds, ...
+               primme_svds_primme_fields{i}));
    end
 end

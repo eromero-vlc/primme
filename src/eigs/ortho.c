@@ -325,7 +325,12 @@ static int Bortho_gen_Sprimme(SCALAR *V, PRIMME_INT ldV, SCALAR *R, int ldR,
             }
 
             if (ISFINITE((REAL)(1.0/s1))) {
-               Num_scal_Sprimme(nLocal, 1.0/s1, &V[ldV*i], 1);
+               if (primme) {
+                  Num_scal_Sprimme(nLocal, 1.0/s1, &V[ldV*i], 1);
+               }
+               else {
+                  for (j=0; j<nLocal; j++) V[ldV*i+j] /= s1;
+               }
                break;
             }
             else {

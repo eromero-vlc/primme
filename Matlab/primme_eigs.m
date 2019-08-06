@@ -306,6 +306,12 @@ function [varargout] = primme_eigs(varargin)
       Aclass = 'single';
    end
 
+   % Matlab/Octave doesn't support sparse single matrices
+   % FIXED: make y = single(A*double(x)), instead of y = A*x
+   if ~Adouble && issparse(A)
+      opts.matrixMatvec = @(x)single(A*double(x));
+   end
+
    % Test whether the given matrix and preconditioner are valid
    try
       x = opts.matrixMatvec(ones(opts.n, 1, Aclass));
@@ -394,7 +400,7 @@ function [varargout] = primme_eigs(varargin)
    % Set monitor and shared variables with the monitor
    hist = [];
    locking = primme_mex('primme_get_member', primme, 'locking');
-   nconv = [];
+   nconv = 0;
    return_hist = 0;
    if dispLevel > 0
       % NOTE: Octave doesn't support function handler for nested functions

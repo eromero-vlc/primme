@@ -469,12 +469,14 @@ fprintf(outputFile, "// ---------------------------------------------------\n"
  *
  ******************************************************************************/
 
-void primme_svds_free(primme_svds_params *primme) {
+void primme_svds_free(primme_svds_params *primme_svds) {
     
-   free(primme->intWork);
-   free(primme->realWork);
-   primme->intWorkSize  = 0;
-   primme->realWorkSize = 0;
+   free(primme_svds->intWork);
+   free(primme_svds->realWork);
+   primme_svds->intWork;
+   primme_svds->realWork;
+   primme_svds->intWorkSize  = 0;
+   primme_svds->realWorkSize = 0;
 }
 
 /*******************************************************************************
@@ -1141,5 +1143,58 @@ int primme_svds_constant_info(const char* label_name, int *value) {
 
    return 1;   
 }
+
+
+// /*******************************************************************************
+//  * Subroutine primme_svds_get_constant_string - return a string representing
+//  *    the value of a primme svds enum constant.
+//  * 
+//  * INPUT PARAMETERS
+//  * ----------------
+//  * label       primme_svds parameter that the constant is related
+//  * value       numerical value of the constant
+//  *
+//  * OUTPUT PARAMETERS
+//  * -----------------
+//  * value_name  pointer to copy he name of the constant (at least 40)
+//  *
+//  * RETURN
+//  * ------
+//  * error code  zero if ok
+//  *
+//  ******************************************************************************/
+// 
+// int primme_svds_constant_info0(primme_svds_params_label *label, int *value,
+//       char* value_name) {
+// 
+// #define IF_IS(F) if (F == *value) {strcpy(#F, value_name); return 0;}
+// 
+//    switch (*label) {
+//    case PRIMME_SVDS_method:
+//    case PRIMME_SVDS_methodStage2:
+//    IF_IS(primme_svds_default);
+//    IF_IS(primme_svds_hybrid);
+//    IF_IS(primme_svds_normalequations);
+//    IF_IS(primme_svds_augmented);
+//    return -1;
+//    
+//    /* enum members for targeting and operator */
+//    
+//    case PRIMME_SVDS_set_met:
+//    IF_IS(primme_svds_largest);
+//    IF_IS(primme_svds_smallest);
+//    IF_IS(primme_svds_closest_abs);
+//    IF_IS(primme_svds_op_none);
+//    IF_IS(primme_svds_op_AtA);
+//    IF_IS(primme_svds_op_AAt);
+//    IF_IS(primme_svds_op_augmented);
+//    }
+// 
+// #undef IF_IS
+// 
+//    /* return error if label not found */
+// 
+//    return 1;   
+// }
 
 #endif /* USE_DOUBLE */

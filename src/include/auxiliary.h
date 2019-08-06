@@ -114,6 +114,13 @@ double* Num_compact_vecs_dprimme(double *vecs, PRIMME_INT m, int n,
 int compute_submatrix_dprimme(double *X, int nX, int ldX,
    double *H, int nH, int ldH, double *R, int ldR,
    double *rwork, size_t *lrwork);
+#if !defined(CHECK_TEMPLATE) && !defined(sort_vec_Sprimme)
+#  define sort_vec_Sprimme CONCAT(sort_vec_,SCALAR_SUF)
+#endif
+#if !defined(CHECK_TEMPLATE) && !defined(sort_vec_Rprimme)
+#  define sort_vec_Rprimme CONCAT(sort_vec_,REAL_SUF)
+#endif
+void sort_vec_dprimme(double *v, int n, int *perm);
 void Num_copy_matrix_zprimme(PRIMME_COMPLEX_DOUBLE *x, PRIMME_INT m, PRIMME_INT n, PRIMME_INT
       ldx, PRIMME_COMPLEX_DOUBLE *y, PRIMME_INT ldy);
 void Num_copy_matrix_columns_zprimme(PRIMME_COMPLEX_DOUBLE *x, PRIMME_INT m, int *xin, int n,
@@ -154,6 +161,7 @@ float* Num_compact_vecs_sprimme(float *vecs, PRIMME_INT m, int n,
 int compute_submatrix_sprimme(float *X, int nX, int ldX,
    float *H, int nH, int ldH, float *R, int ldR,
    float *rwork, size_t *lrwork);
+void sort_vec_sprimme(float *v, int n, int *perm);
 void Num_copy_matrix_cprimme(PRIMME_COMPLEX_FLOAT *x, PRIMME_INT m, PRIMME_INT n, PRIMME_INT
       ldx, PRIMME_COMPLEX_FLOAT *y, PRIMME_INT ldy);
 void Num_copy_matrix_columns_cprimme(PRIMME_COMPLEX_FLOAT *x, PRIMME_INT m, int *xin, int n,
